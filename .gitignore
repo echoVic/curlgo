@@ -1,0 +1,5 @@
+/build/
+/.mygo/
+/flux/
+*.test
+.DS_Store

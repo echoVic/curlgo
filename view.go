@@ -1,0 +1,303 @@
+package main
+
+import (
+	"fmt"
+	"sort"
+	"strconv"
+	"strings"
+
+	"github.com/echoVic/qingzhou-api/internal/core"
+	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/editor"
+)
+
+func (a *application) view(c *ui.Context) {
+	t := ui.LightTheme()
+	if a.workspace.Settings.Theme == "深色" {
+		t = ui.DarkTheme()
+		t.Background = ui.Hex("#111719")
+		t.Surface = ui.Hex("#1b2426")
+		t.Border = ui.Hex("#2c393b")
+	} else {
+		t.Background = ui.Hex("#f7f9f8")
+		t.Surface = ui.Hex("#ffffff")
+		t.Border = ui.Hex("#e1e8e5")
+	}
+	t.Accent = ui.Hex("#177d69")
+	t.AccentHover = ui.Hex("#126653")
+	t.AccentText = ui.Hex("#ffffff")
+	t.Radius = 8
+	t.FontSize = 13
+	c.SetTheme(t)
+	if !a.closing {
+		c.OnShortcut(ui.Cmd, ui.KeyN, a.newRequest)
+		c.OnShortcut(ui.Cmd, ui.KeyS, a.saveRequest)
+		c.OnShortcut(ui.Cmd, ui.KeyEnter, a.send)
+		c.OnShortcut(ui.Cmd, ui.KeyL, func() { a.page = 0; a.urlHandle.Focus(c) })
+		c.OnShortcut(0, ui.KeyEscape, a.stop)
+	}
+	ui.Column(c).Fill().Background(t.Background).Disabled(a.closing).Children(func() {
+		ui.Row(c).Height(62).Padding(16, 22).Gap(12).BorderWidth(0, 0, 1, 0).BorderColor(t.Border).Children(func() {
+			ui.Box(c).Size(30, 30).Radius(10).Background(t.Accent).Center().Children(func() { ui.Text(c, "舟").Bold().TextColor(t.AccentText) })
+			ui.Text(c, "轻舟 API").FontSize(17).Bold()
+			ui.Text(c, "轻一点，专注请求本身").TextColor(t.TextMuted).FontSize(12)
+			ui.Spacer(c)
+			ui.Text(c, "本地离线工作区").TextColor(t.Accent).FontSize(12)
+			ui.Select(c.Key("theme"), &a.workspace.Settings.Theme, []string{"浅色", "深色"}).Width(78).Label("主题").OnChange(a.persist)
+		})
+		ui.Row(c).Grow(1).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
+			a.sidebar(c)
+			ui.Column(c).Grow(1).MinWidth(0).Padding(22).Gap(14).Children(func() {
+				if a.page == 1 {
+					a.settingsView(c)
+				} else if a.page == 2 {
+					a.importView(c)
+				} else {
+					a.requestView(c)
+				}
+			})
+		})
+		if a.notice != "" {
+			ui.Row(c).Padding(10, 22).Gap(12).Background(t.Surface).BorderWidth(1, 0, 0, 0).BorderColor(t.Border).Children(func() {
+				ui.Text(c, a.notice).Grow(1).FontSize(12)
+				ui.Button(c.Key("dismiss"), "知道了").OnClick(func() { a.notice = "" })
+			})
+		}
+		ui.Row(c).Height(28).PaddingX(16).BorderWidth(1, 0, 0, 0).BorderColor(t.Border).Children(func() {
+			ui.Text(c, a.saveStatus).TextColor(t.TextMuted).FontSize(11)
+			ui.Spacer(c)
+			ui.Text(c, "⌘ N 新请求     ⌘ L 地址     ⌘ ↵ 发送     Esc 停止").TextColor(t.TextMuted).FontSize(11)
+		})
+	})
+}
+func (a *application) sidebar(c *ui.Context) {
+	t := c.Theme()
+	ui.Column(c).Width(230).Shrink(0).Padding(16, 12).Gap(12).Background(t.Surface).BorderWidth(0, 1, 0, 0).BorderColor(t.Border).Children(func() {
+		ui.PrimaryButton(c.Key("new"), "＋  新请求").FillWidth().Height(36).OnClick(a.newRequest)
+		ui.Button(c.Key("import"), "导入 curl").FillWidth().OnClick(func() { a.page = 2; a.notice = "" })
+		ui.TextInput(c.Key("search"), &a.search).Placeholder("搜索收藏与历史").Label("搜索请求")
+		ui.Segmented(c.Key("library"), &a.libraryTab, "收藏", "历史").FillWidth()
+		ui.Scroll(c.Key("requests")).Grow(1).MinHeight(0).Children(func() {
+			if a.libraryTab == 0 {
+				if len(a.workspace.Requests) == 0 {
+					ui.Column(c).Padding(12, 4).Gap(8).Children(func() {
+						ui.Text(c, "常用请求，留在手边").TextColor(t.TextMuted)
+						ui.Text(c, "填好地址后，点「收藏」即可。\n临时请求可以直接发送。").TextColor(t.TextMuted).FontSize(11)
+					})
+				}
+				for _, r := range a.workspace.Requests {
+					if !a.matches(r) {
+						continue
+					}
+					r := r
+					ui.Column(c.Key(r.ID)).PaddingY(3).Children(func() {
+						ui.Button(c.Key("pick"), r.Method+"  "+short(r.Name, 20)).FillWidth().Height(36).Label("打开 " + r.Name).OnClick(func() { a.selectRequest(r) })
+						ui.Row(c).Children(func() {
+							ui.Text(c, short(r.URL, 24)).FontSize(10).TextColor(t.TextMuted).Grow(1)
+							ui.Button(c.Key("remove"), "移除").FontSize(10).OnClick(func() { a.deleteRequest(r.ID) })
+						})
+					})
+				}
+			} else {
+				if len(a.workspace.History) == 0 {
+					ui.Text(c, "发出的请求会出现在这里").TextColor(t.TextMuted).FontSize(11)
+				}
+				for i, h := range a.workspace.History {
+					if !a.matches(h.Request) {
+						continue
+					}
+					h := h
+					ui.Button(c.Key(fmt.Sprintf("history-%d", i)), h.At.Format("15:04")+"  "+h.Request.Method+"  "+short(h.Request.URL, 16)).FillWidth().Height(36).OnClick(func() { a.selectRequest(h.Request) })
+				}
+			}
+		})
+		if a.libraryTab == 1 && len(a.workspace.History) > 0 {
+			ui.Button(c.Key("clear-history"), "清空历史").OnClick(func() { a.workspace.History = nil; a.persist() })
+		}
+		ui.Divider(c)
+		ui.Button(c.Key("settings"), "环境与全局请求头").FillWidth().OnClick(func() { a.syncSettings(); a.page = 1; a.notice = "" })
+		ui.Text(c, "不登录 · 不上传 · 随时离开").TextColor(t.TextMuted).FontSize(10)
+	})
+}
+func (a *application) matches(r core.Request) bool {
+	return strings.Contains(strings.ToLower(r.Name+" "+r.URL), strings.ToLower(a.search))
+}
+func short(s string, n int) string {
+	r := []rune(s)
+	if len(r) > n {
+		return string(r[:n]) + "…"
+	}
+	return s
+}
+func (a *application) requestView(c *ui.Context) {
+	t := c.Theme()
+	r := &a.workspace.Draft
+	services := c.Services()
+	ui.Row(c).Gap(12).Children(func() {
+		ui.TextInput(c.Key("name"), &r.Name).Grow(1).Label("请求名称").OnChange(a.persist)
+		ui.Button(c.Key("save"), "收藏  ⌘ S").OnClick(a.saveRequest)
+		ui.Button(c.Key("copy-curl"), "复制 curl").Disabled(r.Protocol == "WebSocket").OnClick(func() {
+			if !a.validateDraft() {
+				return
+			}
+			cmd, err := core.ExportCURL(a.workspace.Draft, a.workspace.Settings)
+			if err != nil {
+				a.notice = err.Error()
+				return
+			}
+			services.WriteClipboard(cmd)
+			a.notice = "curl 已复制（包含当前环境的实际值）"
+		})
+	})
+	ui.Row(c).Gap(10).Children(func() {
+		ui.Select(c.Key("protocol"), &r.Protocol, []string{"HTTP", "SSE", "WebSocket"}).Width(115).Label("协议").Disabled(a.busy).OnChange(func() { a.response = ""; a.stream = ""; a.persist() })
+		var envs []string
+		for k := range a.workspace.Settings.Environments {
+			envs = append(envs, k)
+		}
+		sort.Strings(envs)
+		ui.Text(c, "环境").TextColor(t.TextMuted)
+		ui.Select(c.Key("environment"), &a.workspace.Settings.Environment, envs).Width(160).Label("当前环境").Disabled(a.busy).OnChange(a.persist)
+		ui.Spacer(c)
+		ui.Text(c, "{{name}} 引用环境变量").FontSize(11).TextColor(t.TextMuted)
+	})
+	ui.Row(c).Padding(6).Gap(8).Radius(12).Background(t.Surface).BorderWidth(1).BorderColor(t.Border).Children(func() {
+		ui.Select(c.Key("method"), &r.Method, []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}).Width(100).Label("请求方法").Disabled(a.busy || r.Protocol == "WebSocket").OnChange(a.persist)
+		ui.TextInput(c.Key("url"), &r.URL).Bind(&a.urlHandle).Grow(1).Height(36).Placeholder("https://… 或 {{base_url}}/api").Label("请求地址").Disabled(a.busy).OnChange(a.persist).OnSubmit(a.send)
+		label := "发送  ⌘ ↵"
+		if r.Protocol == "WebSocket" {
+			label = "连接"
+		}
+		if a.busy {
+			label = "停止"
+		}
+		ui.PrimaryButton(c.Key("send"), label).Width(112).Height(36).OnClick(a.send)
+	})
+	ui.SplitVertical(c.Key("panes"), &a.split, func() {
+		ui.Column(c).Fill().Gap(10).Padding(0, 0, 8, 0).Children(func() {
+			ui.Tabs(c.Key("request-tabs"), &a.requestTab, "请求头", "正文", "Cookie", "选项")
+			switch a.requestTab {
+			case 0:
+				ui.Text(c, "单个请求的同名 Header 会覆盖全局 Header").FontSize(11).TextColor(t.TextMuted)
+				ui.TextArea(c.Key("headers"), &a.headers).Grow(1).FillWidth().Font("monospace").Label("请求头内容").Placeholder("Content-Type: application/json\nAuthorization: Bearer {{token}}").Disabled(a.busy).OnChange(func() {
+					h, err := core.ParseHeaders(a.headers)
+					if err != nil {
+						a.notice = err.Error()
+						return
+					}
+					r.Headers = h
+					a.persist()
+				})
+			case 1:
+				ui.Text(c, "JSON 或原始文本 · 变量在发送时替换").FontSize(11).TextColor(t.TextMuted)
+				ui.TextArea(c.Key("body"), &r.Body).Grow(1).FillWidth().Font("monospace").Label("请求正文").Placeholder("{\n  \"hello\": \"world\"\n}").Disabled(a.busy).OnChange(a.persist)
+			case 2:
+				raw, err := core.Expand(r.URL, a.workspace.Settings.Environments[a.workspace.Settings.Environment])
+				if err != nil {
+					raw = ""
+				}
+				cookies := a.engine.Cookies(raw)
+				ui.Text(c, "当前地址适用的 Cookie · 退出后清除").FontSize(11).TextColor(t.TextMuted)
+				ui.Scroll(c).Grow(1).Children(func() {
+					if len(cookies) == 0 {
+						ui.Text(c, "还没有 Cookie，收到 Set-Cookie 后会自动保存。").TextColor(t.TextMuted)
+					}
+					for _, cookie := range cookies {
+						ui.Text(c, cookie.Name+" = "+cookie.Value).Selectable()
+					}
+				})
+				ui.Button(c.Key("clear-cookies"), "清空所有 Cookie").OnClick(func() { a.engine.ClearCookies(); a.notice = "Cookie 已清空" })
+			case 3:
+				ui.Row(c).Gap(10).Children(func() {
+					ui.Text(c, "超时（秒）")
+					ui.TextInput(c.Key("timeout"), &a.timeout).Width(100).Label("超时秒数").OnChange(func() {
+						n, err := strconv.Atoi(a.timeout)
+						if err != nil || n < 1 || n > 3600 {
+							a.notice = "超时为 1–3600 秒"
+							return
+						}
+						r.TimeoutSeconds = n
+						a.persist()
+					})
+				})
+				ui.Checkbox(c.Key("redirect"), &r.FollowRedirects, "跟随重定向（最多 10 次）").OnChange(a.persist)
+				ui.Text(c, "校验 TLS 证书 · 直接连接目标地址\n流连接的超时仅限制建立连接阶段，可随时停止。").TextColor(t.TextMuted).FontSize(12)
+			}
+		})
+	}, func() { a.responseView(c) }).Grow(1).MinHeight(120)
+}
+func (a *application) responseView(c *ui.Context) {
+	t := c.Theme()
+	services := c.Services()
+	ui.Column(c).Fill().Padding(10, 0, 0, 0).Gap(10).Children(func() {
+		ui.Row(c).Gap(12).Children(func() {
+			ui.Text(c, "响应").Bold().FontSize(15)
+			ui.Text(c, a.status).TextColor(t.Accent).FontSize(12).Grow(1)
+			ui.Button(c.Key("copy-response"), "复制响应").OnClick(func() { services.WriteClipboard(a.responseText()); a.notice = "响应已复制" })
+		})
+		ui.Tabs(c.Key("response-tabs"), &a.responseTab, "内容 / 消息", "响应头")
+		text := a.responseText()
+		if text == "" {
+			ui.Column(c).Grow(1).FillWidth().Center().Gap(10).Children(func() {
+				ui.Text(c, "一次请求，从这里出发").FontSize(20).TextColor(t.TextMuted)
+				ui.Text(c, "粘贴地址，或从左侧导入 curl。无需新建项目。").FontSize(12).TextColor(t.TextMuted)
+			})
+		} else {
+			if a.responseVersion != text {
+				a.responseEditor.Buffer.Reset(text)
+				a.responseVersion = text
+			}
+			editor.View(c.Key("response-code"), a.responseEditor).Label("响应内容").Grow(1).FillWidth().MinHeight(40)
+		}
+		if a.workspace.Draft.Protocol == "WebSocket" {
+			ui.Row(c).Gap(10).Children(func() {
+				ui.TextInput(c.Key("message"), &a.message).Grow(1).Label("WebSocket 消息").Placeholder("输入要发送的文本消息").OnSubmit(a.sendMessage)
+				ui.PrimaryButton(c.Key("send-message"), "发送消息").Disabled(a.socket == nil).OnClick(a.sendMessage)
+			})
+		}
+	})
+}
+func (a *application) settingsView(c *ui.Context) {
+	t := c.Theme()
+	ui.Row(c).Children(func() {
+		ui.Text(c, "环境与全局请求头").FontSize(23).Bold()
+		ui.Spacer(c)
+		ui.Button(c.Key("back"), "返回请求").OnClick(func() { a.page = 0 })
+	})
+	ui.Text(c, "所有配置只保存在本机。环境变量会用于 URL、Header 与正文。").TextColor(t.TextMuted)
+	ui.Row(c).Gap(10).Children(func() {
+		ui.Text(c, "环境名称")
+		ui.TextInput(c.Key("env-name"), &a.envName).Width(220).Label("环境名称")
+		ui.Text(c, "填入新名字即可新增环境").TextColor(t.TextMuted).FontSize(11)
+	})
+	ui.Row(c).Grow(1).MinHeight(0).Gap(20).AlignItems(ui.Stretch).Children(func() {
+		ui.Column(c).Grow(1).Basis(0).Gap(10).Children(func() {
+			ui.Text(c, "变量 · JSON").Bold()
+			ui.TextArea(c.Key("vars"), &a.variables).Grow(1).FillWidth().Font("monospace").Label("环境变量")
+		})
+		ui.Column(c).Grow(1).Basis(0).Gap(10).Children(func() {
+			ui.Text(c, "全局 Header").Bold()
+			ui.TextArea(c.Key("global-headers"), &a.globalHeaders).Grow(1).FillWidth().Font("monospace").Label("全局请求头").Placeholder("Accept: application/json\nAuthorization: Bearer {{token}}")
+		})
+	})
+	ui.Row(c).Gap(12).Children(func() {
+		ui.PrimaryButton(c.Key("apply"), "保存配置").OnClick(a.applySettings)
+		ui.Text(c, "环境值以明文存储，分享文件前请检查凭证。").TextColor(t.TextMuted).FontSize(11)
+	})
+}
+func (a *application) importView(c *ui.Context) {
+	t := c.Theme()
+	services := c.Services()
+	ui.Row(c).Children(func() {
+		ui.Text(c, "把 curl 放进来").FontSize(23).Bold()
+		ui.Spacer(c)
+		ui.Button(c.Key("back-import"), "返回请求").OnClick(func() { a.page = 0 })
+	})
+	ui.Text(c, "粘贴命令，变成可编辑的请求。只解析文本，导入时不会发送请求。").TextColor(t.TextMuted)
+	ui.TextArea(c.Key("curl-text"), &a.curlInput).Label("curl 命令").Grow(1).FillWidth().Font("monospace").Placeholder("curl 'https://example.com/api' \\\n  -H 'Accept: application/json'")
+	ui.Row(c).Gap(12).Children(func() {
+		ui.PrimaryButton(c.Key("do-import"), "导入请求").OnClick(a.importCURL)
+		ui.Button(c.Key("paste-curl"), "从剪贴板粘贴").OnClick(func() { a.curlInput = services.ReadClipboard() })
+		ui.Text(c, "不执行脚本，不读取 @file").FontSize(11).TextColor(t.TextMuted)
+	})
+}
