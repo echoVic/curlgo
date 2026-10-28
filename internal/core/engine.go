@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"mime"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"net/http/cookiejar"
@@ -167,6 +168,29 @@ func (e *Engine) Run(ctx context.Context, r Request, emit func(Event)) error {
 		return err
 	}
 	req.Header = HTTPHeaders(r.Headers)
+	if r.BodyMode == BodyMultipart {
+		boundary := multipart.NewWriter(io.Discard).Boundary()
+		body, size, err := openMultipart(r.FormParts, boundary)
+		if err != nil {
+			return err
+		}
+		req.Body, req.ContentLength = body, size
+		defer body.Close()
+		req.GetBody = func() (io.ReadCloser, error) {
+			body, length, err := openMultipart(r.FormParts, boundary)
+			if err != nil {
+				return nil, err
+			}
+			if length != size {
+				body.Close()
+				return nil, fmt.Errorf("上传文件在重定向前发生变化，请重新发送")
+			}
+			return body, nil
+		}
+		req.Header.Set("Content-Type", "multipart/form-data; boundary="+boundary)
+	} else if r.BodyMode != BodyRaw {
+		return fmt.Errorf("不支持的正文类型")
+	}
 	if host := req.Header.Get("Host"); host != "" {
 		req.Host = host
 		req.Header.Del("Host")

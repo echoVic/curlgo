@@ -8,6 +8,63 @@ import (
 	"testing"
 )
 
+func TestCURLMultipart(t *testing.T) {
+	t.Run("文本字段安全往返", func(t *testing.T) {
+		r := modelRequest()
+		r.BodyMode, r.Body = BodyMultipart, "inactive"
+		r.FormParts = []FormPart{
+			{Kind: FormText, Name: "title", Value: "{{text}}"},
+			{Kind: FormText, Name: "title", Value: "@literal;type=text/plain"},
+		}
+		s := NewWorkspace().Settings
+		s.Environments[s.Environment]["text"] = "it's $(literal)\n中文"
+		cmd, err := ExportCURL(r, s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := ImportCURL(cmd)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.BodyMode != BodyMultipart || len(got.FormParts) != 2 || got.FormParts[0].Value != "it's $(literal)\n中文" || got.FormParts[1].Value != "@literal;type=text/plain" {
+			t.Fatalf("curl 导出丢失表单语义：%s %+v", cmd, got)
+		}
+		if strings.Contains(cmd, "--data-raw") || strings.Contains(cmd, "Content-Type:") {
+			t.Fatalf("multipart curl 使用了原始正文：%s", cmd)
+		}
+	})
+	t.Run("文件路径在curl表单语法中转义", func(t *testing.T) {
+		r := modelRequest()
+		r.BodyMode = BodyMultipart
+		r.FormParts = []FormPart{{Kind: FormFile, Name: "file", FilePath: `/tmp/a,b; "quote".txt`}}
+		cmd, err := ExportCURL(r, NewWorkspace().Settings)
+		if err != nil {
+			t.Fatal(err)
+		}
+		args, err := SplitShell(cmd)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if args[len(args)-2] != "--form" || args[len(args)-1] != `file=@"/tmp/a,b; \"quote\".txt"` {
+			t.Fatalf("文件路径转义错误：%q", args)
+		}
+		if _, err := ImportCURL(cmd); err == nil {
+			t.Fatal("导入 curl 自动授权了本地文件读取")
+		}
+	})
+	for _, cmd := range []string{
+		`curl https://example.test --form-string 'missing-equals'`,
+		`curl https://example.test --form-string 'name=value' -d 'raw'`,
+		`curl https://example.test -d 'raw' --form-string 'name=value'`,
+	} {
+		t.Run(cmd, func(t *testing.T) {
+			if _, err := ImportCURL(cmd); err == nil {
+				t.Fatal("无效或混合正文没有拒绝")
+			}
+		})
+	}
+}
+
 func TestSplitShell(t *testing.T) {
 	for _, tc := range []struct {
 		name, input string

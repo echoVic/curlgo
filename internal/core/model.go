@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -13,21 +14,42 @@ import (
 
 const MaxBody = 4 << 20
 const MaxInput = 1 << 20
+const MaxFormParts = 100
+
+type BodyMode string
+type FormKind string
+
+const (
+	BodyRaw       BodyMode = ""
+	BodyMultipart BodyMode = "multipart"
+	FormText      FormKind = "text"
+	FormFile      FormKind = "file"
+)
+
+type FormPart struct {
+	ID       string   `json:"id,omitempty"`
+	Kind     FormKind `json:"kind"`
+	Name     string   `json:"name"`
+	Value    string   `json:"value,omitempty"`
+	FilePath string   `json:"filePath,omitempty"`
+}
 
 type Pair struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
 type Request struct {
-	ID              string `json:"id"`
-	Name            string `json:"name"`
-	Protocol        string `json:"protocol"`
-	Method          string `json:"method"`
-	URL             string `json:"url"`
-	Headers         []Pair `json:"headers,omitempty"`
-	Body            string `json:"body,omitempty"`
-	FollowRedirects bool   `json:"followRedirects"`
-	TimeoutSeconds  int    `json:"timeoutSeconds"`
+	ID              string     `json:"id"`
+	Name            string     `json:"name"`
+	Protocol        string     `json:"protocol"`
+	Method          string     `json:"method"`
+	URL             string     `json:"url"`
+	Headers         []Pair     `json:"headers,omitempty"`
+	Body            string     `json:"body,omitempty"`
+	BodyMode        BodyMode   `json:"bodyMode,omitempty"`
+	FormParts       []FormPart `json:"formParts,omitempty"`
+	FollowRedirects bool       `json:"followRedirects"`
+	TimeoutSeconds  int        `json:"timeoutSeconds"`
 }
 type Settings struct {
 	GlobalHeaders []Pair                       `json:"globalHeaders,omitempty"`
@@ -84,7 +106,10 @@ func Expand(s string, vars map[string]string) (string, error) {
 // Resolve does not mutate the saved template. Request headers override globals,
 // case-insensitively; repeated request headers remain repeated on the wire.
 func Resolve(r Request, s Settings) (Request, error) {
-	if len(r.Body) > MaxInput || len(r.URL) > 65536 {
+	if r.BodyMode != BodyRaw && r.BodyMode != BodyMultipart {
+		return r, fmt.Errorf("不支持的正文类型")
+	}
+	if r.BodyMode == BodyRaw && len(r.Body) > MaxInput || len(r.URL) > 65536 {
 		return r, fmt.Errorf("请求超过大小限制")
 	}
 	vars := s.Environments[s.Environment]
@@ -112,8 +137,27 @@ func Resolve(r Request, s Settings) (Request, error) {
 	if r.TimeoutSeconds < 1 || r.TimeoutSeconds > 3600 {
 		return r, fmt.Errorf("超时应为 1–3600 秒")
 	}
-	if r.Body, err = Expand(r.Body, vars); err != nil {
-		return r, err
+	if r.BodyMode == BodyMultipart {
+		if r.Protocol == "WebSocket" {
+			return r, fmt.Errorf("WebSocket 不支持 multipart 表单")
+		}
+		r.Body = ""
+		r.FormParts = append([]FormPart(nil), r.FormParts...)
+		for i := range r.FormParts {
+			p := &r.FormParts[i]
+			if p.Kind == FormText {
+				if p.Value, err = Expand(p.Value, vars); err != nil {
+					return r, err
+				}
+			}
+		}
+		if err := validateFormParts(r.FormParts); err != nil {
+			return r, err
+		}
+	} else {
+		if r.Body, err = Expand(r.Body, vars); err != nil {
+			return r, err
+		}
 	}
 	if len(r.Body) > MaxInput || len(r.URL) > 65536 {
 		return r, fmt.Errorf("变量替换后的请求超过大小限制")
@@ -129,6 +173,15 @@ func Resolve(r Request, s Settings) (Request, error) {
 		}
 	}
 	all = append(all, r.Headers...)
+	if r.BodyMode == BodyMultipart {
+		filtered := all[:0]
+		for _, h := range all {
+			if !strings.EqualFold(strings.TrimSpace(h.Key), "Content-Type") {
+				filtered = append(filtered, h)
+			}
+		}
+		all = filtered
+	}
 	for i := range all {
 		all[i].Key = strings.TrimSpace(all[i].Key)
 		if !validToken(all[i].Key) {
@@ -150,6 +203,32 @@ func Resolve(r Request, s Settings) (Request, error) {
 		return r, fmt.Errorf("请求方法无效")
 	}
 	return r, nil
+}
+
+func validateFormParts(parts []FormPart) error {
+	if len(parts) > MaxFormParts {
+		return fmt.Errorf("表单最多支持 %d 个字段", MaxFormParts)
+	}
+	size := 0
+	for _, p := range parts {
+		size += len(p.Name) + len(p.Value) + len(p.FilePath)
+		if size > MaxInput {
+			return fmt.Errorf("表单字段内容超过 1 MiB")
+		}
+		if strings.TrimSpace(p.Name) == "" || !validHeaderValue(p.Name) {
+			return fmt.Errorf("表单字段名称不能为空或包含控制字符")
+		}
+		switch p.Kind {
+		case FormText:
+		case FormFile:
+			if !filepath.IsAbs(p.FilePath) || strings.ContainsRune(p.FilePath, 0) {
+				return fmt.Errorf("请为文件字段 %s 选择本地文件", p.Name)
+			}
+		default:
+			return fmt.Errorf("不支持的表单字段类型")
+		}
+	}
+	return nil
 }
 func validToken(s string) bool {
 	if s == "" {

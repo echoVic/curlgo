@@ -138,6 +138,9 @@ func ImportCURL(input string) (Request, error) {
 				}
 			}
 		case "-d", "--data", "--data-raw", "--data-binary", "--json":
+			if r.BodyMode == BodyMultipart {
+				return r, fmt.Errorf("curl 不能混用原始正文和 multipart 表单")
+			}
 			var v string
 			v, err = take()
 			if err == nil {
@@ -149,6 +152,23 @@ func ImportCURL(input string) (Request, error) {
 					jsonBody = jsonBody || name == "--json"
 				}
 			}
+		case "--form-string":
+			if hasBody {
+				return r, fmt.Errorf("curl 不能混用原始正文和 multipart 表单")
+			}
+			var v string
+			v, err = take()
+			if err == nil {
+				key, value, ok := strings.Cut(v, "=")
+				if !ok {
+					return r, fmt.Errorf("表单字段应为 name=value")
+				}
+				r.BodyMode = BodyMultipart
+				r.FormParts = append(r.FormParts, FormPart{ID: NewID(), Kind: FormText, Name: key, Value: value})
+				err = validateFormParts(r.FormParts)
+			}
+		case "-F", "--form":
+			return r, fmt.Errorf("请在正文页选择上传文件；curl 导入不会读取本地文件")
 		case "-u", "--user":
 			var v string
 			v, err = take()
@@ -226,7 +246,7 @@ func ImportCURL(input string) (Request, error) {
 	if r.URL == "" {
 		return r, fmt.Errorf("curl 缺少 URL")
 	}
-	if hasBody && !explicitMethod {
+	if (hasBody || r.BodyMode == BodyMultipart) && !explicitMethod {
 		r.Method = "POST"
 	}
 	r.Body = strings.Join(data, "&")
@@ -288,6 +308,23 @@ func ExportCURL(r Request, s Settings) (string, error) {
 	}
 	for _, h := range r.Headers {
 		parts = append(parts, "--header", shellQuote(h.Key+": "+h.Value))
+	}
+	if r.BodyMode == BodyMultipart {
+		if len(r.FormParts) == 0 {
+			return "", fmt.Errorf("请先添加表单字段再复制 curl")
+		}
+		for _, p := range r.FormParts {
+			if strings.ContainsRune(p.Name, '=') {
+				return "", fmt.Errorf("curl 不支持包含等号的字段名称")
+			}
+			if p.Kind == FormText {
+				parts = append(parts, "--form-string", shellQuote(p.Name+"="+p.Value))
+			} else {
+				path := strings.NewReplacer("\\", "\\\\", "\"", "\\\"").Replace(p.FilePath)
+				parts = append(parts, "--form", shellQuote(p.Name+"=@\""+path+"\""))
+			}
+		}
+		return strings.Join(parts, " "), nil
 	}
 	if r.Body != "" {
 		hasType := false

@@ -235,8 +235,7 @@ func (a *application) requestView(c *ui.Context) {
 					a.persist()
 				})
 			case 1:
-				ui.Text(c, "JSON 或原始文本 · 变量在发送时替换").FontSize(11).TextColor(t.TextMuted)
-				ui.TextArea(c.Key("body"), &r.Body).Grow(1).FillWidth().Font("monospace").Label("请求正文").Placeholder("{\n  \"hello\": \"world\"\n}").Disabled(a.busy).OnChange(a.persist)
+				a.bodyView(c)
 			case 2:
 				raw, err := core.Expand(r.URL, a.workspace.Settings.Environments[a.workspace.Settings.Environment])
 				if err != nil {

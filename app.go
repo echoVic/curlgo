@@ -52,10 +52,13 @@ type application struct {
 	caCertPEM                                                              string
 	caError                                                                error
 	importingCA                                                            bool
+	selectingFile                                                          string
+	pickUploadFile                                                         func(mygo.OpenDialogOptions) ([]string, error)
 }
 
 func newApplication(w core.Workspace) *application {
 	a := &application{workspace: w, engine: core.NewEngine(), split: 240, status: "准备就绪", saveStatus: "所有内容仅保存在本机"}
+	a.pickUploadFile = mygo.Dialog.Open
 	a.syncDraft()
 	a.syncSettings()
 	a.caError = a.engine.SetCACertificates(w.Settings.CACertPEM)
@@ -73,13 +76,16 @@ func (a *application) post(fn func()) {
 }
 func cloneWorkspace(w core.Workspace) core.Workspace {
 	w.Draft.Headers = append([]core.Pair(nil), w.Draft.Headers...)
+	w.Draft.FormParts = append([]core.FormPart(nil), w.Draft.FormParts...)
 	w.Requests = append([]core.Request(nil), w.Requests...)
 	for i := range w.Requests {
 		w.Requests[i].Headers = append([]core.Pair(nil), w.Requests[i].Headers...)
+		w.Requests[i].FormParts = append([]core.FormPart(nil), w.Requests[i].FormParts...)
 	}
 	w.History = append([]core.History(nil), w.History...)
 	for i := range w.History {
 		w.History[i].Request.Headers = append([]core.Pair(nil), w.History[i].Request.Headers...)
+		w.History[i].Request.FormParts = append([]core.FormPart(nil), w.History[i].Request.FormParts...)
 	}
 	w.Settings.GlobalHeaders = append([]core.Pair(nil), w.Settings.GlobalHeaders...)
 	envs := make(map[string]map[string]string, len(w.Settings.Environments))
@@ -179,6 +185,11 @@ func (a *application) closeWindow(e *mygo.CloseEvent) {
 	a.saves <- job
 }
 func (a *application) syncDraft() {
+	for i := range a.workspace.Draft.FormParts {
+		if a.workspace.Draft.FormParts[i].ID == "" {
+			a.workspace.Draft.FormParts[i].ID = core.NewID()
+		}
+	}
 	a.headers = core.FormatHeaders(a.workspace.Draft.Headers)
 	a.timeout = fmt.Sprint(a.workspace.Draft.TimeoutSeconds)
 }
@@ -191,6 +202,7 @@ func (a *application) syncSettings() {
 }
 func (a *application) selectRequest(r core.Request) {
 	a.stop()
+	r.FormParts = append([]core.FormPart(nil), r.FormParts...)
 	a.workspace.Draft = r
 	a.syncDraft()
 	a.response = ""
@@ -207,6 +219,7 @@ func (a *application) saveRequest() {
 		return
 	}
 	r := a.workspace.Draft
+	r.FormParts = append([]core.FormPart(nil), r.FormParts...)
 	if strings.TrimSpace(r.Name) == "" {
 		a.notice = "先给请求起一个名字"
 		return
@@ -351,6 +364,7 @@ func (a *application) stop() {
 	a.busy = false
 }
 func (a *application) addHistory(r core.Request, status string) {
+	r.FormParts = append([]core.FormPart(nil), r.FormParts...)
 	a.workspace.History = append([]core.History{{Request: r, At: time.Now(), Status: status}}, a.workspace.History...)
 	if len(a.workspace.History) > 100 {
 		a.workspace.History = a.workspace.History[:100]

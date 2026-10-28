@@ -338,6 +338,63 @@ func TestFormatHeaders(t *testing.T) {
 	})
 }
 
+func TestResolveMultipart(t *testing.T) {
+	r := modelRequest()
+	r.BodyMode = BodyMultipart
+	r.Body = "{{inactive}}"
+	r.FormParts = []FormPart{
+		{Kind: FormText, Name: "title", Value: "{{value}}"},
+		{Kind: FormFile, Name: "files", FilePath: "/tmp/{{literal}}.txt"},
+	}
+	s := NewWorkspace().Settings
+	s.Environments[s.Environment]["value"] = "中文内容"
+	s.GlobalHeaders = []Pair{{Key: "Content-Type", Value: "application/json"}, {Key: "X-Test", Value: "yes"}}
+	r.Headers = []Pair{{Key: "content-type", Value: "multipart/form-data; boundary=wrong"}}
+	before := modelSnapshot(t, r)
+	got, err := Resolve(r, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Body != "" || got.FormParts[0].Value != "中文内容" || got.FormParts[1].FilePath != "/tmp/{{literal}}.txt" {
+		t.Fatalf("表单变量或正文处理错误：%+v", got)
+	}
+	if len(got.Headers) != 1 || got.Headers[0].Key != "X-Test" {
+		t.Fatalf("Content-Type 应由 multipart 编码器生成：%+v", got.Headers)
+	}
+	got.FormParts[0].Value = "changed"
+	if modelSnapshot(t, r) != before {
+		t.Fatal("解析修改了保存的表单模板")
+	}
+	for name, mutate := range map[string]func(*Request){
+		"未知正文类型":      func(r *Request) { r.BodyMode = "unknown" },
+		"未知字段类型":      func(r *Request) { r.FormParts[0].Kind = "unknown" },
+		"缺少字段名称":      func(r *Request) { r.FormParts[0].Name = "" },
+		"字段名称含换行":     func(r *Request) { r.FormParts[0].Name = "bad\r\nname" },
+		"未选择文件":       func(r *Request) { r.FormParts[1].FilePath = "" },
+		"相对文件路径":      func(r *Request) { r.FormParts[1].FilePath = "relative.txt" },
+		"过多字段":        func(r *Request) { r.FormParts = make([]FormPart, MaxFormParts+1) },
+		"文本过大":        func(r *Request) { r.FormParts[0].Value = strings.Repeat("x", MaxInput+1) },
+		"WebSocket表单": func(r *Request) { r.Protocol, r.URL = "WebSocket", "ws://example.test" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			invalid := r
+			invalid.FormParts = append([]FormPart(nil), r.FormParts...)
+			mutate(&invalid)
+			if _, err := Resolve(invalid, s); err == nil {
+				t.Fatal("无效表单未被拒绝")
+			}
+		})
+	}
+	t.Run("原始正文忽略未启用表单", func(t *testing.T) {
+		r.BodyMode, r.Body = BodyRaw, "raw"
+		r.FormParts = []FormPart{{Kind: FormFile}}
+		got, err := Resolve(r, s)
+		if err != nil || got.Body != "raw" {
+			t.Fatalf("原始正文被未启用的表单干扰：%v", err)
+		}
+	})
+}
+
 func TestNewWorkspace(t *testing.T) {
 	// 推断：首次打开即可编辑，有合法活动环境；不固定实现中的名称、版本号、超时常量。
 	t.Run("初始草稿和活动环境", func(t *testing.T) {
