@@ -242,7 +242,7 @@ func (a *application) requestView(c *ui.Context) {
 					raw = ""
 				}
 				cookies := a.engine.Cookies(raw)
-				ui.Text(c, "当前地址适用的 Cookie · 退出后清除").FontSize(11).TextColor(t.TextMuted)
+				ui.Text(c, "当前地址适用的 Cookie · 保存在本机，重启后恢复").FontSize(11).TextColor(t.TextMuted)
 				ui.Scroll(c).Grow(1).Children(func() {
 					if len(cookies) == 0 {
 						ui.Text(c, "还没有 Cookie，收到 Set-Cookie 后会自动保存。").TextColor(t.TextMuted)
@@ -251,7 +251,7 @@ func (a *application) requestView(c *ui.Context) {
 						ui.Text(c, cookie.Name+" = "+cookie.Value).Selectable()
 					}
 				})
-				ui.Button(c.Key("clear-cookies"), "清空所有 Cookie").OnClick(func() { a.engine.ClearCookies(); a.toast = "Cookie 已清空" })
+				ui.Button(c.Key("clear-cookies"), "清空所有 Cookie").OnClick(func() { a.engine.ClearCookies(); a.persist(); a.toast = "Cookie 已清空" })
 			case 3:
 				ui.Row(c).Gap(10).Children(func() {
 					ui.Text(c, "超时（秒）")

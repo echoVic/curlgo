@@ -15,14 +15,12 @@ import (
 	"mime/multipart"
 	"net"
 	"net/http"
-	"net/http/cookiejar"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/coder/websocket"
-	"golang.org/x/net/publicsuffix"
 )
 
 type Event struct {
@@ -38,19 +36,21 @@ type Event struct {
 	Retry     string
 }
 type Engine struct {
-	mu        sync.RWMutex
-	jar       http.CookieJar
-	roots     *x509.CertPool
-	transport *http.Transport
+	mu            sync.RWMutex
+	jar           *persistentJar
+	roots         *x509.CertPool
+	transport     *http.Transport
+	cookieChanged func()
 }
 
 func NewEngine() *Engine {
-	j, _ := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	t.Proxy = nil
 	t.DialContext = (&net.Dialer{Timeout: 15 * time.Second, KeepAlive: 30 * time.Second}).DialContext
 	t.ResponseHeaderTimeout = 30 * time.Second
-	return &Engine{jar: j, transport: t}
+	e := &Engine{transport: t}
+	e.jar = newCookieJar(e.cookiesChanged)
+	return e
 }
 
 // ParseCACertificates adds PEM certificates to the system roots. Blank input
@@ -103,10 +103,11 @@ func (e *Engine) SetCACertificates(text string) error {
 	return nil
 }
 func (e *Engine) ClearCookies() {
-	j, _ := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
+	j := newCookieJar(e.cookiesChanged)
 	e.mu.Lock()
 	e.jar = j
 	e.mu.Unlock()
+	e.cookiesChanged()
 }
 func (e *Engine) Cookies(raw string) []*http.Cookie {
 	u, err := url.Parse(raw)

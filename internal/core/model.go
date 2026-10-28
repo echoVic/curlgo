@@ -64,11 +64,12 @@ type History struct {
 	Status  string    `json:"status"`
 }
 type Workspace struct {
-	Version  int       `json:"version"`
-	Draft    Request   `json:"draft"`
-	Requests []Request `json:"requests"`
-	Settings Settings  `json:"settings"`
-	History  []History `json:"history"`
+	Version  int           `json:"version"`
+	Draft    Request       `json:"draft"`
+	Requests []Request     `json:"requests"`
+	Settings Settings      `json:"settings"`
+	History  []History     `json:"history"`
+	Cookies  []SavedCookie `json:"cookies,omitempty"`
 }
 
 func NewID() string {

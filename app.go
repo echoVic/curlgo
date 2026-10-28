@@ -59,6 +59,10 @@ type application struct {
 func newApplication(w core.Workspace) *application {
 	a := &application{workspace: w, engine: core.NewEngine(), split: 240, status: "准备就绪", saveStatus: "所有内容仅保存在本机"}
 	a.pickUploadFile = mygo.Dialog.Open
+	a.engine.RestoreCookies(w.Cookies)
+	a.engine.OnCookiesChanged(func() {
+		a.post(func() { a.persist() })
+	})
 	a.syncDraft()
 	a.syncSettings()
 	a.caError = a.engine.SetCACertificates(w.Settings.CACertPEM)
@@ -75,6 +79,10 @@ func (a *application) post(fn func()) {
 	}
 }
 func cloneWorkspace(w core.Workspace) core.Workspace {
+	w.Cookies = append([]core.SavedCookie(nil), w.Cookies...)
+	for i := range w.Cookies {
+		w.Cookies[i].Cookie.Unparsed = append([]string(nil), w.Cookies[i].Cookie.Unparsed...)
+	}
 	w.Draft.Headers = append([]core.Pair(nil), w.Draft.Headers...)
 	w.Draft.FormParts = append([]core.FormPart(nil), w.Draft.FormParts...)
 	w.Requests = append([]core.Request(nil), w.Requests...)
@@ -153,6 +161,7 @@ func (a *application) persist() {
 	}
 	a.revision++
 	a.saveStatus = "正在保存…"
+	a.workspace.Cookies = a.engine.CookieSnapshot()
 	if a.saves == nil {
 		return
 	}
@@ -176,6 +185,7 @@ func (a *application) closeWindow(e *mygo.CloseEvent) {
 		return
 	}
 	a.stop()
+	a.workspace.Cookies = a.engine.CookieSnapshot()
 	a.closing = true
 	job := saveJob{workspace: cloneWorkspace(a.workspace), revision: a.revision, final: true}
 	select {

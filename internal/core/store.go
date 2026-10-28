@@ -137,8 +137,24 @@ func (s *Store) Save(w Workspace) error {
 	path := filepath.Join(s.Dir, "workspace.json")
 	old, err := readWorkspace(path)
 	if err == nil {
-		if _, e := decodeWorkspace(old); e != nil {
+		previous, e := decodeWorkspace(old)
+		if e != nil {
 			return fmt.Errorf("原文件损坏，未覆盖：%w", e)
+		}
+		// Recovery can restore prior requests, but must not revive a deleted
+		// login session or roll a server's updated cookies back.
+		previous.Cookies = w.Cookies
+		old, err = json.MarshalIndent(previous, "", "  ")
+		if err == nil && len(old) > maxWorkspace {
+			// A backup without cookies is still recoverable; an oversized one is not.
+			previous.Cookies = nil
+			old, err = json.MarshalIndent(previous, "", "  ")
+		}
+		if err != nil {
+			return err
+		}
+		if len(old) > maxWorkspace {
+			return fmt.Errorf("备份超过 16 MiB，请清理历史或请求")
 		}
 		if err = atomicWrite(path+".bak", old); err != nil {
 			return err
