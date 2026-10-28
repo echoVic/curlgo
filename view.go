@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/echoVic/qingzhou-api/internal/core"
+	"github.com/echoVic/curlgo/internal/core"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 )
@@ -38,9 +38,9 @@ func (a *application) view(c *ui.Context) {
 	}
 	ui.Column(c).Fill().Background(t.Background).Disabled(a.closing).Children(func() {
 		ui.Row(c).Height(62).Padding(16, 22).Gap(12).BorderWidth(0, 0, 1, 0).BorderColor(t.Border).Children(func() {
-			ui.Box(c).Size(30, 30).Radius(10).Background(t.Accent).Center().Children(func() { ui.Text(c, "舟").Bold().TextColor(t.AccentText) })
-			ui.Text(c, "轻舟 API").FontSize(17).Bold()
-			ui.Text(c, "轻一点，专注请求本身").TextColor(t.TextMuted).FontSize(12)
+			ui.Box(c).Size(30, 30).Radius(10).Background(t.Accent).Center().Children(func() { ui.Text(c, ">").Bold().TextColor(t.AccentText) })
+			ui.Text(c, "CurlGo").FontSize(17).Bold()
+			ui.Text(c, "贴入请求，马上开始").TextColor(t.TextMuted).FontSize(12)
 			ui.Spacer(c)
 			ui.Text(c, "本地离线工作区").TextColor(t.Accent).FontSize(12)
 			ui.Select(c.Key("theme"), &a.workspace.Settings.Theme, []string{"浅色", "深色"}).Width(78).Label("主题").OnChange(a.persist)

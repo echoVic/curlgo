@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/echoVic/qingzhou-api/internal/core"
+	"github.com/echoVic/curlgo/internal/core"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 )
@@ -35,7 +35,7 @@ func main() {
 		}
 		return
 	}
-	mygo.App.SetName("轻舟 API")
+	mygo.App.SetName("CurlGo")
 	if !mygo.App.RequestSingleInstanceLock() {
 		return
 	}
@@ -46,6 +46,7 @@ func main() {
 			mygo.App.Quit()
 			return
 		}
+		// Keep the original data directory so existing drafts and history survive the rename.
 		store, err := core.OpenStore(filepath.Join(dir, "QingzhouAPI"))
 		if err != nil {
 			mygo.Dialog.Error("无法打开本地工作区", err.Error())
@@ -66,7 +67,7 @@ func main() {
 				a.saveStatus = "数据不可读：当前为临时会话，不覆盖原文件"
 			}
 		}
-		a.win = mygo.NewWindow(mygo.WindowOptions{Title: "轻舟 API", Width: 1200, Height: 820, MinWidth: 940, MinHeight: 680, Content: ui.View(a.view)})
+		a.win = mygo.NewWindow(mygo.WindowOptions{Title: "CurlGo", Width: 1200, Height: 820, MinWidth: 940, MinHeight: 680, Content: ui.View(a.view)})
 		a.updates = a.win.Update
 		a.closeNative = a.win.Close
 		mygo.App.OnSecondInstance(func(_ []string, _ string) {

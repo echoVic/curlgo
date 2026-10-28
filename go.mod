@@ -1,4 +1,4 @@
-module github.com/echoVic/qingzhou-api
+module github.com/echoVic/curlgo
 
 go 1.27.1
 

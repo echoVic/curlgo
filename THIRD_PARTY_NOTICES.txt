@@ -1,4 +1,4 @@
-轻舟 API 第三方依赖许可
+CurlGo 第三方依赖许可
 
 
 github.com/egoist/mygo / LICENSE

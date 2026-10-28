@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/echoVic/qingzhou-api/internal/core"
+	"github.com/echoVic/curlgo/internal/core"
 	"github.com/egoist/mygo"
 )
 

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/echoVic/qingzhou-api/internal/core"
+	"github.com/echoVic/curlgo/internal/core"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"

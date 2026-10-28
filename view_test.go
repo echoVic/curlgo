@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/echoVic/qingzhou-api/internal/core"
+	"github.com/echoVic/curlgo/internal/core"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -97,6 +97,11 @@ func TestApplicationView(t *testing.T) {
 	t.Run("初始布局名称地址输入与新建", func(t *testing.T) {
 		a, _ := testApp(t)
 		tt := ui.NewTester(a.view, 1200, 820)
+		for _, text := range []string{"CurlGo", ">", "贴入请求，马上开始"} {
+			if !tt.HasText(text) {
+				t.Fatalf("初始界面未显示品牌文本 %q", text)
+			}
+		}
 		r, ok := tt.Find("请求头内容")
 		if !ok || r.H < 60 {
 			t.Fatalf("请求头编辑区不可用：%+v", r)
