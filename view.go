@@ -294,6 +294,12 @@ func (a *application) responseView(c *ui.Context) {
 				a.responseEditor.Buffer.Reset(text)
 				a.responseVersion = text
 			}
+			language := ""
+			if a.responseTab == 0 && a.workspace.Draft.Protocol == "HTTP" {
+				language = a.responseLanguage
+			}
+			// LanguageNamed returns nil for "", which is plain text.
+			a.responseEditor.Buffer.SetLanguage(editor.LanguageNamed(language))
 			editor.View(c.Key("response-code"), a.responseEditor).Label("响应内容").Grow(1).FillWidth().MinHeight(40)
 		}
 		if a.workspace.Draft.Protocol == "WebSocket" {

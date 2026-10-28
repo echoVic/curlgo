@@ -345,6 +345,26 @@ func TestEngineRunHTTP(t *testing.T) {
 			t.Fatalf("JSON展示与原始字节计数错误：%+v", body)
 		}
 	})
+	t.Run("按内容类型格式化并标注语言", func(t *testing.T) {
+		for _, tc := range []struct{ contentType, body, text, language string }{
+			{"application/xml", "<a><b>1</b></a>", "<a>\n  <b>1</b>\n</a>", "xml"},
+			{"text/html; charset=utf-8", "<p>x</p>", "<p>x</p>", "html"},
+			{"text/csv", "a,b", "a,b", ""},
+		} {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", tc.contentType)
+				fmt.Fprint(w, tc.body)
+			}))
+			events, err := collectRun(engineFixture(t), context.Background(), engineRequest(srv.URL))
+			srv.Close()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if b := bodyEvent(t, events); b.Text != tc.text || b.Language != tc.language || b.Bytes != len(tc.body) {
+				t.Fatalf("%s 格式化错误：%+v", tc.contentType, b)
+			}
+		}
+	})
 	for _, follow := range []bool{false, true} {
 		name := "不跟随"
 		if follow {

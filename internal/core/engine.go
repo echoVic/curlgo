@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -26,6 +25,7 @@ import (
 type Event struct {
 	Kind      string
 	Text      string
+	Language  string // editor language for a body, empty for plain text
 	Status    string
 	Headers   http.Header
 	Elapsed   time.Duration
@@ -228,14 +228,12 @@ func (e *Engine) Run(ctx context.Context, r Request, emit func(Event)) error {
 	if truncated {
 		data = data[:MaxBody]
 	}
-	body := string(data)
-	if !truncated && json.Valid(data) {
-		var formatted bytes.Buffer
-		if json.Indent(&formatted, data, "", "  ") == nil {
-			body = formatted.String()
-		}
+	// A truncated body is incomplete, so it is shown as received.
+	body, language := string(data), ""
+	if !truncated {
+		body, language = FormatResponse(body, resp.Header.Get("Content-Type"))
 	}
-	emit(Event{Kind: "body", Text: body, Bytes: len(data), Elapsed: time.Since(start), Truncated: truncated})
+	emit(Event{Kind: "body", Text: body, Language: language, Bytes: len(data), Elapsed: time.Since(start), Truncated: truncated})
 	return nil
 }
 

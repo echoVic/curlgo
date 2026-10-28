@@ -56,6 +56,33 @@ func TestApplicationView(t *testing.T) {
 			t.Fatal("保存 CA 后不能返回请求界面")
 		}
 	})
+	t.Run("响应高亮跟随内容类型", func(t *testing.T) {
+		a, _ := testApp(t)
+		tt := ui.NewTester(a.view, 1200, 820)
+		language := func() string {
+			if l := a.responseEditor.Buffer.Language(); l != nil {
+				return l.Name
+			}
+			return ""
+		}
+		a.applyEvent(core.Event{Kind: "body", Text: "<a/>", Language: "xml"})
+		tt.Frame()
+		if language() != "XML" {
+			t.Fatalf("XML 响应应使用 XML 高亮：%q", language())
+		}
+		a.applyEvent(core.Event{Kind: "body", Text: "plain", Language: ""})
+		tt.Frame()
+		if language() != "" {
+			t.Fatalf("纯文本响应不应高亮：%q", language())
+		}
+		a.applyEvent(core.Event{Kind: "body", Text: `{"a":1}`, Language: "json"})
+		a.responseTab = 1
+		a.responseHeaders = http.Header{"X": {"1"}}
+		tt.Frame()
+		if language() != "" {
+			t.Fatalf("响应头页不应使用正文高亮：%q", language())
+		}
+	})
 	t.Run("流响应刷新不保留撤销历史", func(t *testing.T) {
 		a, _ := testApp(t)
 		a.workspace.Draft.Protocol = "SSE"

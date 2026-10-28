@@ -37,7 +37,7 @@ type application struct {
 	headers, globalHeaders, variables, envName, search, curlInput, message string
 	timeout                                                                string
 	status, notice, saveStatus                                             string
-	response, stream                                                       string
+	response, stream, responseLanguage                                     string
 	responseHeaders                                                        http.Header
 	responseEditor                                                         *editor.State
 	responseVersion                                                        string
@@ -80,7 +80,6 @@ func newApplication(w core.Workspace) *application {
 		a.notice = a.proxyError.Error()
 	}
 	a.responseEditor = &editor.State{Buffer: editor.NewBuffer(""), ReadOnly: true, SoftWrap: true}
-	a.responseEditor.Buffer.SetLanguage(editor.LanguageNamed("JSON"))
 	return a
 }
 func (a *application) post(fn func()) {
@@ -548,6 +547,7 @@ func (a *application) applyEvent(e core.Event) {
 		a.status = fmt.Sprintf("%s  ·  %d ms", e.Status, e.Elapsed.Milliseconds())
 	case "body":
 		a.response = e.Text
+		a.responseLanguage = e.Language
 		a.status = fmt.Sprintf("%s  ·  %.1f KiB  ·  %d ms", strings.Split(a.status, "  ·")[0], float64(e.Bytes)/1024, e.Elapsed.Milliseconds())
 		if e.Truncated {
 			a.notice = "响应超过 4 MiB，当前展示已截断"
