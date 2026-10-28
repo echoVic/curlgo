@@ -1,12 +1,12 @@
 module github.com/echoVic/curlgo
 
-go 1.27.1
+go 1.27.3
 
 tool github.com/egoist/mygo/cmd/mygo
 
 require (
 	github.com/coder/websocket v1.8.14
-	github.com/egoist/mygo v0.5.0
+	github.com/egoist/mygo v0.7.1
 	golang.org/x/net v0.59.0
 )
 

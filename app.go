@@ -45,6 +45,8 @@ type application struct {
 	generation                                                             uint64
 	split                                                                  float32
 	urlHandle                                                              ui.Handle
+	list                                                                   ui.ListState
+	toast                                                                  string
 }
 
 func newApplication(w core.Workspace) *application {
@@ -202,13 +204,13 @@ func (a *application) saveRequest() {
 	for i, v := range a.workspace.Requests {
 		if v.ID == r.ID {
 			a.workspace.Requests[i] = r
-			a.notice = "请求已更新"
+			a.toast = "请求已更新"
 			a.persist()
 			return
 		}
 	}
 	a.workspace.Requests = append(a.workspace.Requests, r)
-	a.notice = "请求已收藏"
+	a.toast = "请求已收藏"
 	a.persist()
 }
 func (a *application) deleteRequest(id string) {
@@ -228,7 +230,7 @@ func (a *application) importCURL() {
 	}
 	a.selectRequest(r)
 	a.curlInput = ""
-	a.notice = "已导入，可以检查后发送"
+	a.toast = "已导入，可以检查后发送"
 }
 func (a *application) applySettings() {
 	h, err := core.ParseHeaders(a.globalHeaders)
@@ -262,7 +264,7 @@ func (a *application) applySettings() {
 	a.workspace.Settings.GlobalHeaders = h
 	a.workspace.Settings.Environments[name] = vars
 	a.workspace.Settings.Environment = name
-	a.notice = "环境与全局请求头已保存"
+	a.toast = "环境与全局请求头已保存"
 	a.persist()
 }
 func (a *application) stop() {

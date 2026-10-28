@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -15,16 +14,34 @@ func (a *application) view(c *ui.Context) {
 	t := ui.LightTheme()
 	if a.workspace.Settings.Theme == "深色" {
 		t = ui.DarkTheme()
-		t.Background = ui.Hex("#111719")
-		t.Surface = ui.Hex("#1b2426")
-		t.Border = ui.Hex("#2c393b")
+		// 紫罗兰优雅 · 深色：靛蓝主色 + 冷紫灰中性色
+		t.Background = ui.Hex("#0f0f1a")
+		t.Surface = ui.Hex("#181826")
+		t.SurfaceHover = ui.Hex("#22223a")
+		t.SurfacePressed = ui.Hex("#2a2a45")
+		t.Border = ui.Hex("#2a2a3e")
+		t.Text = ui.Hex("#e4e6ed")
+		t.TextMuted = ui.Hex("#8b8fa3")
+		t.Accent = ui.Hex("#6366f1")
+		t.AccentHover = ui.Hex("#818cf8")
+		t.AccentPressed = ui.Hex("#4f46e5")
+		t.Selection = ui.RGBA(99, 102, 241, 0.30)
+		t.Focus = ui.RGBA(129, 140, 248, 0.55)
 	} else {
-		t.Background = ui.Hex("#f7f9f8")
+		// 紫罗兰优雅 · 浅色
+		t.Background = ui.Hex("#f5f5fa")
 		t.Surface = ui.Hex("#ffffff")
-		t.Border = ui.Hex("#e1e8e5")
+		t.SurfaceHover = ui.Hex("#eeeef7")
+		t.SurfacePressed = ui.Hex("#e4e4f0")
+		t.Border = ui.Hex("#e0e0ee")
+		t.Text = ui.Hex("#1a1a2e")
+		t.TextMuted = ui.Hex("#6b6b80")
+		t.Accent = ui.Hex("#6366f1")
+		t.AccentHover = ui.Hex("#4f46e5")
+		t.AccentPressed = ui.Hex("#4338ca")
+		t.Selection = ui.RGBA(99, 102, 241, 0.20)
+		t.Focus = ui.RGBA(79, 70, 229, 0.45)
 	}
-	t.Accent = ui.Hex("#177d69")
-	t.AccentHover = ui.Hex("#126653")
 	t.AccentText = ui.Hex("#ffffff")
 	t.Radius = 8
 	t.FontSize = 13
@@ -69,45 +86,74 @@ func (a *application) view(c *ui.Context) {
 			ui.Text(c, "⌘ N 新请求     ⌘ L 地址     ⌘ ↵ 发送     Esc 停止").TextColor(t.TextMuted).FontSize(11)
 		})
 	})
+	if a.toast != "" {
+		c.Toast(a.toast)
+		a.toast = ""
+	}
 }
 func (a *application) sidebar(c *ui.Context) {
 	t := c.Theme()
 	ui.Column(c).Width(230).Shrink(0).Padding(16, 12).Gap(12).Background(t.Surface).BorderWidth(0, 1, 0, 0).BorderColor(t.Border).Children(func() {
 		ui.PrimaryButton(c.Key("new"), "＋  新请求").FillWidth().Height(36).OnClick(a.newRequest)
 		ui.Button(c.Key("import"), "导入 curl").FillWidth().OnClick(func() { a.page = 2; a.notice = "" })
-		ui.TextInput(c.Key("search"), &a.search).Placeholder("搜索收藏与历史").Label("搜索请求")
+		ui.SearchField(c.Key("search"), &a.search).Label("搜索请求")
 		ui.Segmented(c.Key("library"), &a.libraryTab, "收藏", "历史").FillWidth()
-		ui.Scroll(c.Key("requests")).Grow(1).MinHeight(0).Children(func() {
+		var rows []struct {
+			r    core.Request
+			time string
+		}
+		if a.libraryTab == 0 {
+			for _, r := range a.workspace.Requests {
+				if a.matches(r) {
+					rows = append(rows, struct {
+						r    core.Request
+						time string
+					}{r, ""})
+				}
+			}
+		} else {
+			for _, h := range a.workspace.History {
+				if a.matches(h.Request) {
+					rows = append(rows, struct {
+						r    core.Request
+						time string
+					}{h.Request, h.At.Format("15:04")})
+				}
+			}
+		}
+		a.list.Key = func(i int) any {
+			if i >= 0 && i < len(rows) {
+				return rows[i].r.ID
+			}
+			return i
+		}
+		ui.List(c.Key("requests"), &a.list, len(rows), func(i int) {
+			item := rows[i]
+			r := item.r
 			if a.libraryTab == 0 {
-				if len(a.workspace.Requests) == 0 {
-					ui.Column(c).Padding(12, 4).Gap(8).Children(func() {
-						ui.Text(c, "常用请求，留在手边").TextColor(t.TextMuted)
-						ui.Text(c, "填好地址后，点「收藏」即可。\n临时请求可以直接发送。").TextColor(t.TextMuted).FontSize(11)
+				ui.Column(c).PaddingY(3).Children(func() {
+					ui.Button(c.Key("pick"), r.Method+"  "+short(r.Name, 20)).FillWidth().Height(36).Label("打开 " + r.Name).OnClick(func() { a.selectRequest(r) })
+					ui.Row(c).Children(func() {
+						ui.Text(c, short(r.URL, 24)).FontSize(10).TextColor(t.TextMuted).Grow(1)
+						ui.Button(c.Key("remove"), "移除").FontSize(10).OnClick(func() { a.deleteRequest(r.ID) })
 					})
-				}
-				for _, r := range a.workspace.Requests {
-					if !a.matches(r) {
-						continue
-					}
-					r := r
-					ui.Column(c.Key(r.ID)).PaddingY(3).Children(func() {
-						ui.Button(c.Key("pick"), r.Method+"  "+short(r.Name, 20)).FillWidth().Height(36).Label("打开 " + r.Name).OnClick(func() { a.selectRequest(r) })
-						ui.Row(c).Children(func() {
-							ui.Text(c, short(r.URL, 24)).FontSize(10).TextColor(t.TextMuted).Grow(1)
-							ui.Button(c.Key("remove"), "移除").FontSize(10).OnClick(func() { a.deleteRequest(r.ID) })
-						})
-					})
-				}
+				})
 			} else {
-				if len(a.workspace.History) == 0 {
-					ui.Text(c, "发出的请求会出现在这里").TextColor(t.TextMuted).FontSize(11)
-				}
-				for i, h := range a.workspace.History {
-					if !a.matches(h.Request) {
-						continue
+				ui.Button(c.Key("pick"), item.time+"  "+r.Method+"  "+short(r.URL, 16)).FillWidth().Height(36).OnClick(func() { a.selectRequest(r) })
+			}
+		}).Grow(1).MinHeight(0).Children(func() {
+			if len(rows) == 0 {
+				if a.libraryTab == 0 {
+					if len(a.workspace.Requests) == 0 {
+						ui.Column(c).Padding(12, 4).Gap(8).Children(func() {
+							ui.Text(c, "常用请求，留在手边").TextColor(t.TextMuted)
+							ui.Text(c, "填好地址后，点「收藏」即可。\n临时请求可以直接发送。").TextColor(t.TextMuted).FontSize(11)
+						})
+					} else {
+						ui.Text(c, "没有匹配的请求").TextColor(t.TextMuted).FontSize(11).Padding(12, 4)
 					}
-					h := h
-					ui.Button(c.Key(fmt.Sprintf("history-%d", i)), h.At.Format("15:04")+"  "+h.Request.Method+"  "+short(h.Request.URL, 16)).FillWidth().Height(36).OnClick(func() { a.selectRequest(h.Request) })
+				} else {
+					ui.Text(c, "发出的请求会出现在这里").TextColor(t.TextMuted).FontSize(11).Padding(12, 4)
 				}
 			}
 		})
@@ -146,7 +192,7 @@ func (a *application) requestView(c *ui.Context) {
 				return
 			}
 			services.WriteClipboard(cmd)
-			a.notice = "curl 已复制（包含当前环境的实际值）"
+			a.toast = "curl 已复制（包含当前环境的实际值）"
 		})
 	})
 	ui.Row(c).Gap(10).Children(func() {
@@ -206,7 +252,7 @@ func (a *application) requestView(c *ui.Context) {
 						ui.Text(c, cookie.Name+" = "+cookie.Value).Selectable()
 					}
 				})
-				ui.Button(c.Key("clear-cookies"), "清空所有 Cookie").OnClick(func() { a.engine.ClearCookies(); a.notice = "Cookie 已清空" })
+				ui.Button(c.Key("clear-cookies"), "清空所有 Cookie").OnClick(func() { a.engine.ClearCookies(); a.toast = "Cookie 已清空" })
 			case 3:
 				ui.Row(c).Gap(10).Children(func() {
 					ui.Text(c, "超时（秒）")
@@ -233,7 +279,7 @@ func (a *application) responseView(c *ui.Context) {
 		ui.Row(c).Gap(12).Children(func() {
 			ui.Text(c, "响应").Bold().FontSize(15)
 			ui.Text(c, a.status).TextColor(t.Accent).FontSize(12).Grow(1)
-			ui.Button(c.Key("copy-response"), "复制响应").OnClick(func() { services.WriteClipboard(a.responseText()); a.notice = "响应已复制" })
+			ui.Button(c.Key("copy-response"), "复制响应").OnClick(func() { services.WriteClipboard(a.responseText()); a.toast = "响应已复制" })
 		})
 		ui.Tabs(c.Key("response-tabs"), &a.responseTab, "内容 / 消息", "响应头")
 		text := a.responseText()
@@ -265,21 +311,17 @@ func (a *application) settingsView(c *ui.Context) {
 		ui.Button(c.Key("back"), "返回请求").OnClick(func() { a.page = 0 })
 	})
 	ui.Text(c, "所有配置只保存在本机。环境变量会用于 URL、Header 与正文。").TextColor(t.TextMuted)
-	ui.Row(c).Gap(10).Children(func() {
-		ui.Text(c, "环境名称")
-		ui.TextInput(c.Key("env-name"), &a.envName).Width(220).Label("环境名称")
-		ui.Text(c, "填入新名字即可新增环境").TextColor(t.TextMuted).FontSize(11)
-	})
-	ui.Row(c).Grow(1).MinHeight(0).Gap(20).AlignItems(ui.Stretch).Children(func() {
-		ui.Column(c).Grow(1).Basis(0).Gap(10).Children(func() {
-			ui.Text(c, "变量 · JSON").Bold()
-			ui.TextArea(c.Key("vars"), &a.variables).Grow(1).FillWidth().Font("monospace").Label("环境变量")
-		})
-		ui.Column(c).Grow(1).Basis(0).Gap(10).Children(func() {
-			ui.Text(c, "全局 Header").Bold()
-			ui.TextArea(c.Key("global-headers"), &a.globalHeaders).Grow(1).FillWidth().Font("monospace").Label("全局请求头").Placeholder("Accept: application/json\nAuthorization: Bearer {{token}}")
-		})
-	})
+	ui.Form(c, func() {
+		ui.Field(c, "环境名称", func() {
+			ui.TextInput(c.Key("env-name"), &a.envName).Width(220)
+		}).Description("填入新名字即可新增环境")
+		ui.Field(c, "环境变量", func() {
+			ui.TextArea(c.Key("vars"), &a.variables).Grow(1).FillWidth().Font("monospace")
+		}).Grow(1).Description("变量以 JSON 对象表示，值均为字符串，如 {\"host\":\"https://…\"}")
+		ui.Field(c, "全局请求头", func() {
+			ui.TextArea(c.Key("global-headers"), &a.globalHeaders).Grow(1).FillWidth().Font("monospace").Placeholder("Accept: application/json\nAuthorization: Bearer {{token}}")
+		}).Grow(1)
+	}).Grow(1).MinHeight(0)
 	ui.Row(c).Gap(12).Children(func() {
 		ui.PrimaryButton(c.Key("apply"), "保存配置").OnClick(a.applySettings)
 		ui.Text(c, "环境值以明文存储，分享文件前请检查凭证。").TextColor(t.TextMuted).FontSize(11)
