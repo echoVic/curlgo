@@ -268,7 +268,7 @@ func (a *application) requestView(c *ui.Context) {
 					})
 				})
 				ui.Checkbox(c.Key("redirect"), &r.FollowRedirects, "跟随重定向（最多 10 次）").OnChange(a.persist)
-				ui.Text(c, "校验 TLS 证书 · 直接连接目标地址\n流连接的超时仅限制建立连接阶段，可随时停止。").TextColor(t.TextMuted).FontSize(12)
+				ui.Text(c, "校验 TLS 证书 · 代理在「环境与全局请求头」中设置\n流连接的超时仅限制建立连接阶段，可随时停止。").TextColor(t.TextMuted).FontSize(12)
 			}
 		})
 	}, func() { a.responseView(c) }).Grow(1).MinHeight(120)
@@ -331,6 +331,12 @@ func (a *application) settingsView(c *ui.Context) {
 				})
 			})
 		}).Description("追加到系统信任库，用于 HTTPS、SSE 和 WSS。留空使用系统证书，保存配置后生效。")
+		ui.Field(c, "代理", func() {
+			ui.Row(c).FillWidth().Gap(8).Children(func() {
+				ui.TextInput(c.Key("proxy-url"), &a.proxyURL).Grow(1).Label("代理地址").Placeholder("http://127.0.0.1:8888 或 socks5://…")
+				ui.TextInput(c.Key("proxy-bypass"), &a.proxyBypass).Grow(1).Label("不使用代理的地址").Placeholder("internal.example.com, .corp")
+			})
+		}).Description("用于 HTTP、SSE 和 WebSocket。留空直连；本机地址始终直连。")
 	}).Grow(1).MinHeight(0)
 	ui.Row(c).Gap(12).Children(func() {
 		ui.PrimaryButton(c.Key("apply"), "保存配置").OnClick(a.applySettings)

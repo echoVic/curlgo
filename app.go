@@ -51,6 +51,8 @@ type application struct {
 	toast                                                                  string
 	caCertPEM                                                              string
 	caError                                                                error
+	proxyURL, proxyBypass                                                  string
+	proxyError                                                             error
 	importingCA                                                            bool
 	selectingFile                                                          string
 	pickUploadFile                                                         func(mygo.OpenDialogOptions) ([]string, error)
@@ -72,6 +74,10 @@ func newApplication(w core.Workspace) *application {
 	a.caError = a.engine.SetCACertificates(w.Settings.CACertPEM)
 	if a.caError != nil {
 		a.notice = a.caError.Error()
+	}
+	a.proxyError = a.engine.SetProxy(w.Settings.Proxy)
+	if a.proxyError != nil {
+		a.notice = a.proxyError.Error()
 	}
 	a.responseEditor = &editor.State{Buffer: editor.NewBuffer(""), ReadOnly: true, SoftWrap: true}
 	a.responseEditor.Buffer.SetLanguage(editor.LanguageNamed("JSON"))
@@ -210,6 +216,8 @@ func (a *application) syncDraft() {
 func (a *application) syncSettings() {
 	a.globalHeaders = core.FormatHeaders(a.workspace.Settings.GlobalHeaders)
 	a.caCertPEM = a.workspace.Settings.CACertPEM
+	a.proxyURL = a.workspace.Settings.Proxy.URL
+	a.proxyBypass = a.workspace.Settings.Proxy.Bypass
 	a.envName = a.workspace.Settings.Environment
 	b, _ := json.MarshalIndent(a.workspace.Settings.Environments[a.envName], "", "  ")
 	a.variables = string(b)
@@ -298,14 +306,30 @@ func (a *application) applySettings() {
 		a.notice = "请填写环境名称"
 		return
 	}
+	// Validate both before applying either, so a bad value changes nothing.
+	proxy := core.ProxySettings{URL: strings.TrimSpace(a.proxyURL), Bypass: strings.TrimSpace(a.proxyBypass)}
+	if err := core.ValidateProxy(proxy); err != nil {
+		a.notice = err.Error()
+		return
+	}
+	if _, err := core.ParseCACertificates(a.caCertPEM); err != nil {
+		a.notice = err.Error()
+		return
+	}
 	if err := a.engine.SetCACertificates(a.caCertPEM); err != nil {
 		a.notice = err.Error()
 		return
 	}
+	if err := a.engine.SetProxy(proxy); err != nil {
+		a.notice = err.Error()
+		return
+	}
 	a.caError = nil
+	a.proxyError = nil
 	a.notice = ""
 	a.workspace.Settings.GlobalHeaders = h
 	a.workspace.Settings.CACertPEM = a.caCertPEM
+	a.workspace.Settings.Proxy = proxy
 	a.workspace.Settings.Environments[name] = vars
 	a.workspace.Settings.Environment = name
 	a.toast = "环境与全局请求头已保存"
@@ -395,6 +419,10 @@ func (a *application) send() {
 	}
 	if a.caError != nil {
 		a.notice = a.caError.Error() + "；请在设置中修正或清除证书"
+		return
+	}
+	if a.proxyError != nil {
+		a.notice = a.proxyError.Error() + "；请在设置中修正或清除代理"
 		return
 	}
 	if !a.validateDraft() {

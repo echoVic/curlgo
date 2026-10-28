@@ -39,6 +39,7 @@ type Engine struct {
 	mu            sync.RWMutex
 	jar           *persistentJar
 	roots         *x509.CertPool
+	proxy         func(*http.Request) (*url.URL, error)
 	transport     *http.Transport
 	cookieChanged func()
 }
@@ -128,9 +129,10 @@ func (e *Engine) Cookies(raw string) []*http.Cookie {
 func (e *Engine) Close() { e.transport.CloseIdleConnections() }
 func (e *Engine) client(r Request) *http.Client {
 	e.mu.RLock()
-	j, roots := e.jar, e.roots
+	j, roots, proxy := e.jar, e.roots, e.proxy
 	e.mu.RUnlock()
 	t := e.transport.Clone()
+	t.Proxy = proxy
 	if roots != nil {
 		if t.TLSClientConfig == nil {
 			t.TLSClientConfig = &tls.Config{}
@@ -207,7 +209,7 @@ func (e *Engine) Run(ctx context.Context, r Request, emit func(Event)) error {
 	start := time.Now()
 	resp, err := c.Do(req)
 	if err != nil {
-		return err
+		return proxyError(err)
 	}
 	defer resp.Body.Close()
 	emit(Event{Kind: "headers", Status: resp.Status, Headers: resp.Header.Clone(), Elapsed: time.Since(start)})
@@ -335,7 +337,7 @@ func (e *Engine) Connect(ctx context.Context, r Request) (*Socket, Event, error)
 	}
 	if err != nil {
 		c.CloseIdleConnections()
-		return nil, ev, err
+		return nil, ev, proxyError(err)
 	}
 	conn.SetReadLimit(MaxInput)
 	return &Socket{conn}, ev, nil

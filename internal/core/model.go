@@ -54,6 +54,7 @@ type Request struct {
 type Settings struct {
 	GlobalHeaders []Pair                       `json:"globalHeaders,omitempty"`
 	CACertPEM     string                       `json:"caCertPEM,omitempty"`
+	Proxy         ProxySettings                `json:"proxy,omitzero"`
 	Environments  map[string]map[string]string `json:"environments"`
 	Environment   string                       `json:"environment"`
 	Theme         string                       `json:"theme"`
