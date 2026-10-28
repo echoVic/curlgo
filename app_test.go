@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -219,6 +220,112 @@ func TestApplicationApplySettings(t *testing.T) {
 				t.Fatal("无效设置造成部分更新")
 			}
 		})
+	}
+}
+
+func TestApplicationCASettings(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, "trusted")
+	}))
+	defer srv.Close()
+	ca := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: srv.Certificate().Raw}))
+	t.Run("保存后请求使用自定义CA", func(t *testing.T) {
+		a, q := testApp(t)
+		a.caCertPEM = ca
+		a.applySettings()
+		if a.workspace.Settings.CACertPEM != ca || a.notice != "" {
+			t.Fatalf("CA 配置未保存：%q", a.notice)
+		}
+		a.workspace.Draft = appDraft(srv.URL)
+		a.send()
+		pumpApp(t, q, func() bool { return !a.busy })
+		if a.response != "trusted" || a.notice != "" {
+			t.Fatalf("保存 CA 后请求失败：%q %q", a.response, a.notice)
+		}
+	})
+	t.Run("无效CA不造成部分保存", func(t *testing.T) {
+		a, _ := testApp(t)
+		a.caCertPEM = ca
+		a.applySettings()
+		before := appSnapshot(t, a.workspace.Settings)
+		a.caCertPEM = "invalid"
+		a.envName, a.globalHeaders = "another", "X-New: value"
+		a.applySettings()
+		if appSnapshot(t, a.workspace.Settings) != before || !strings.Contains(a.notice, "CA 证书") {
+			t.Fatalf("无效 CA 改变了设置：%q", a.notice)
+		}
+		if err := a.engine.Run(context.Background(), appDraft(srv.URL), func(core.Event) {}); err != nil {
+			t.Fatalf("无效 CA 改变了引擎信任配置：%v", err)
+		}
+	})
+	t.Run("重启从工作区恢复证书内容", func(t *testing.T) {
+		store, err := core.OpenStore(t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := core.NewWorkspace()
+		w.Settings.CACertPEM = ca
+		if err := store.Save(w); err != nil {
+			t.Fatal(err)
+		}
+		w, err = store.Load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		a := newApplication(w)
+		defer a.engine.Close()
+		if a.caCertPEM != ca {
+			t.Fatal("CA 编辑字段没有恢复")
+		}
+		if err := a.engine.Run(context.Background(), appDraft(srv.URL), func(core.Event) {}); err != nil {
+			t.Fatalf("重启后自定义 CA 没有生效：%v", err)
+		}
+	})
+	t.Run("损坏的已存证书阻止请求直到修正", func(t *testing.T) {
+		w := core.NewWorkspace()
+		w.Settings.CACertPEM = "invalid"
+		w.Draft = appDraft(srv.URL)
+		a := newApplication(w)
+		defer a.engine.Close()
+		a.send()
+		if a.busy || len(a.workspace.History) != 0 || !strings.Contains(a.notice, "CA 证书") {
+			t.Fatalf("损坏的 CA 配置被静默忽略：%q", a.notice)
+		}
+		a.caCertPEM = ca
+		a.applySettings()
+		if a.notice != "" {
+			t.Fatalf("修正 CA 后旧错误提示未清除：%q", a.notice)
+		}
+		if err := a.engine.Run(context.Background(), appDraft(srv.URL), func(core.Event) {}); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
+func TestReadCACertificates(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer srv.Close()
+	ca := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: srv.Certificate().Raw}))
+	for name, content := range map[string]string{
+		"有效证书": ca, "空文件": "", "无效证书": "invalid", "超过大小限制": strings.Repeat("x", core.MaxInput+1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "ca.pem")
+			if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+				t.Fatal(err)
+			}
+			got, err := readCACertificates(path)
+			if name == "有效证书" {
+				if err != nil || got != ca {
+					t.Fatalf("文件导入失败：%v", err)
+				}
+			} else if err == nil || got != "" {
+				t.Fatal("无效证书文件未被拒绝")
+			}
+		})
+	}
+	if _, err := readCACertificates(filepath.Join(t.TempDir(), "missing.pem")); err == nil {
+		t.Fatal("文件不存在时未返回错误")
 	}
 }
 

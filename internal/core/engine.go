@@ -4,8 +4,11 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"mime"
@@ -36,6 +39,7 @@ type Event struct {
 type Engine struct {
 	mu        sync.RWMutex
 	jar       http.CookieJar
+	roots     *x509.CertPool
 	transport *http.Transport
 }
 
@@ -46,6 +50,56 @@ func NewEngine() *Engine {
 	t.DialContext = (&net.Dialer{Timeout: 15 * time.Second, KeepAlive: 30 * time.Second}).DialContext
 	t.ResponseHeaderTimeout = 30 * time.Second
 	return &Engine{jar: j, transport: t}
+}
+
+// ParseCACertificates adds PEM certificates to the system roots. Blank input
+// returns nil to use the system's default trust; private keys are not accepted.
+func ParseCACertificates(text string) (*x509.CertPool, error) {
+	if len(text) > MaxInput {
+		return nil, fmt.Errorf("CA 证书超过 1 MiB")
+	}
+	data := bytes.TrimSpace([]byte(text))
+	if len(data) == 0 {
+		return nil, nil
+	}
+	var certs []*x509.Certificate
+	for len(data) > 0 {
+		if !bytes.HasPrefix(data, []byte("-----BEGIN CERTIFICATE-----")) {
+			return nil, fmt.Errorf("CA 证书只能包含 PEM 证书，不能包含私钥或其他文本")
+		}
+		block, rest := pem.Decode(data)
+		if block == nil || block.Type != "CERTIFICATE" || len(block.Headers) != 0 {
+			return nil, fmt.Errorf("CA 证书应为有效的 PEM 证书")
+		}
+		// pem.Decode can skip a malformed block and return a later one.
+		if bytes.Count(data[:len(data)-len(rest)], []byte("-----BEGIN ")) != 1 {
+			return nil, fmt.Errorf("CA 证书包含损坏的 PEM 证书")
+		}
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("CA 证书内容无效：%w", err)
+		}
+		certs = append(certs, cert)
+		data = bytes.TrimSpace(rest)
+	}
+	roots, err := x509.SystemCertPool()
+	if err != nil {
+		return nil, fmt.Errorf("无法加载系统 CA 证书：%w", err)
+	}
+	for _, cert := range certs {
+		roots.AddCert(cert)
+	}
+	return roots, nil
+}
+func (e *Engine) SetCACertificates(text string) error {
+	roots, err := ParseCACertificates(text)
+	if err != nil {
+		return err
+	}
+	e.mu.Lock()
+	e.roots = roots
+	e.mu.Unlock()
+	return nil
 }
 func (e *Engine) ClearCookies() {
 	j, _ := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
@@ -72,9 +126,15 @@ func (e *Engine) Cookies(raw string) []*http.Cookie {
 func (e *Engine) Close() { e.transport.CloseIdleConnections() }
 func (e *Engine) client(r Request) *http.Client {
 	e.mu.RLock()
-	j := e.jar
+	j, roots := e.jar, e.roots
 	e.mu.RUnlock()
 	t := e.transport.Clone()
+	if roots != nil {
+		if t.TLSClientConfig == nil {
+			t.TLSClientConfig = &tls.Config{}
+		}
+		t.TLSClientConfig.RootCAs = roots
+	}
 	t.ResponseHeaderTimeout = time.Duration(r.TimeoutSeconds) * time.Second
 	c := &http.Client{Transport: t, Jar: j}
 	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {

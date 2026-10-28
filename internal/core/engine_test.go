@@ -3,17 +3,26 @@ package core
 import (
 	"compress/gzip"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
 	"log"
+	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"testing/iotest"
 	"time"
@@ -37,6 +46,233 @@ func bodyEvent(t *testing.T, events []Event) Event {
 	}
 	t.Fatal("未发出body事件")
 	return Event{}
+}
+
+func engineTLSFixture(t *testing.T, handler http.Handler, changeLeaf func(*x509.Certificate)) (*httptest.Server, string) {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	ca := &x509.Certificate{
+		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "CurlGo test CA"},
+		NotBefore: now.Add(-time.Hour), NotAfter: now.Add(time.Hour),
+		IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign,
+	}
+	caDER, err := x509.CreateCertificate(rand.Reader, ca, ca, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leaf := &x509.Certificate{
+		SerialNumber: big.NewInt(2), Subject: pkix.Name{CommonName: "localhost"},
+		NotBefore: now.Add(-time.Hour), NotAfter: now.Add(time.Hour),
+		DNSNames: []string{"localhost"}, IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
+		KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+	if changeLeaf != nil {
+		changeLeaf(leaf)
+	}
+	leafDER, err := x509.CreateCertificate(rand.Reader, leaf, ca, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewUnstartedServer(handler)
+	srv.Config.ErrorLog = log.New(io.Discard, "", 0)
+	srv.TLS = &tls.Config{Certificates: []tls.Certificate{{Certificate: [][]byte{leafDER, caDER}, PrivateKey: key}}}
+	srv.StartTLS()
+	t.Cleanup(srv.Close)
+	return srv, string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caDER}))
+}
+
+func TestEngineCustomCA(t *testing.T) {
+	srv, ca := engineTLSFixture(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, "trusted")
+	}), nil)
+	e := engineFixture(t)
+	r := engineRequest(srv.URL)
+	if _, err := collectRun(e, context.Background(), r); err == nil {
+		t.Fatal("未配置 CA 时不应信任自签证书")
+	}
+	if err := e.SetCACertificates(ca); err != nil {
+		t.Fatal(err)
+	}
+	events, err := collectRun(e, context.Background(), r)
+	if err != nil || bodyEvent(t, events).Text != "trusted" {
+		t.Fatalf("配置自定义 CA 后 HTTPS 请求失败：%v", err)
+	}
+	if err := e.SetCACertificates(""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := collectRun(e, context.Background(), r); err == nil {
+		t.Fatal("清除 CA 后仍信任自签证书")
+	}
+}
+
+func TestEngineInvalidCAKeepsTrust(t *testing.T) {
+	srv, ca := engineTLSFixture(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, "trusted")
+	}), nil)
+	for name, input := range map[string]string{
+		"普通文本":         "not a certificate",
+		"证书前有无效文本":     "invalid\n" + ca,
+		"证书后有无效文本":     ca + "invalid",
+		"损坏PEM后跟有效证书":  "-----BEGIN CERTIFICATE-----\ninvalid!\n-----END CERTIFICATE-----\n" + ca,
+		"未闭合PEM后跟有效证书": "-----BEGIN CERTIFICATE-----\ninvalid!\n" + ca,
+		"混入损坏证书":       ca + "-----BEGIN CERTIFICATE-----\nbm90LWEtdmFsaWQtY2VydA==\n-----END CERTIFICATE-----",
+		"混入私钥":         ca + "-----BEGIN PRIVATE KEY-----\nYWJj\n-----END PRIVATE KEY-----",
+		"PEM包含额外头部":    strings.Replace(ca, "-----BEGIN CERTIFICATE-----\n", "-----BEGIN CERTIFICATE-----\nComment: test\n\n", 1),
+		"超过大小限制":       ca + strings.Repeat("\n", MaxInput),
+	} {
+		t.Run(name, func(t *testing.T) {
+			e := engineFixture(t)
+			if err := e.SetCACertificates(ca); err != nil {
+				t.Fatal(err)
+			}
+			if err := e.SetCACertificates(input); err == nil {
+				t.Fatal("无效 CA 配置未被拒绝")
+			}
+			events, err := collectRun(e, context.Background(), engineRequest(srv.URL))
+			if err != nil || bodyEvent(t, events).Text != "trusted" {
+				t.Fatalf("无效输入改变了原来的 CA 配置：%v", err)
+			}
+		})
+	}
+}
+
+func TestEngineCustomCABundle(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { fmt.Fprint(w, "trusted") })
+	first, ca1 := engineTLSFixture(t, handler, nil)
+	second, ca2 := engineTLSFixture(t, handler, nil)
+	e := engineFixture(t)
+	if err := e.SetCACertificates(ca1 + "\n" + ca2); err != nil {
+		t.Fatal(err)
+	}
+	for _, srv := range []*httptest.Server{first, second} {
+		if _, err := collectRun(e, context.Background(), engineRequest(srv.URL)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := e.SetCACertificates(ca2); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := collectRun(e, context.Background(), engineRequest(first.URL)); err == nil {
+		t.Fatal("替换 CA 后仍信任旧 CA")
+	}
+	if _, err := collectRun(e, context.Background(), engineRequest(second.URL)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestEngineCustomCAStillValidatesTLS(t *testing.T) {
+	for name, change := range map[string]func(*x509.Certificate){
+		"主机名不匹配": func(cert *x509.Certificate) { cert.IPAddresses = nil },
+		"证书过期":   func(cert *x509.Certificate) { cert.NotAfter = time.Now().Add(-time.Minute) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv, ca := engineTLSFixture(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				t.Error("证书校验失败后仍发出了请求")
+			}), change)
+			e := engineFixture(t)
+			if err := e.SetCACertificates(ca); err != nil {
+				t.Fatal(err)
+			}
+			events, err := collectRun(e, context.Background(), engineRequest(srv.URL))
+			var certErr *tls.CertificateVerificationError
+			if !errors.As(err, &certErr) || len(events) != 0 {
+				t.Fatalf("自定义 CA 绕过了证书校验：%v", err)
+			}
+		})
+	}
+}
+
+func TestEngineCustomCAStreaming(t *testing.T) {
+	t.Run("SSE", func(t *testing.T) {
+		srv, ca := engineTLSFixture(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "text/event-stream")
+			fmt.Fprint(w, "data: trusted\n\n")
+		}), nil)
+		e := engineFixture(t)
+		r := engineRequest(srv.URL)
+		r.Protocol = "SSE"
+		if _, err := collectRun(e, context.Background(), r); err == nil {
+			t.Fatal("SSE 默认信任了自签证书")
+		}
+		if err := e.SetCACertificates(ca); err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		events, err := collectRun(e, ctx, r)
+		if err != nil || len(events) != 2 || events[1].Kind != "sse" || events[1].Text != "trusted" {
+			t.Fatalf("SSE 未使用自定义 CA：%v %+v", err, events)
+		}
+	})
+	t.Run("WSS", func(t *testing.T) {
+		srv, ca := engineTLSFixture(t, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			conn, err := websocket.Accept(w, req, nil)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			defer conn.CloseNow()
+			if err := conn.Write(req.Context(), websocket.MessageText, []byte("trusted")); err != nil {
+				t.Error(err)
+			}
+			conn.Close(websocket.StatusNormalClosure, "done")
+		}), nil)
+		e := engineFixture(t)
+		r := engineRequest("wss" + strings.TrimPrefix(srv.URL, "https"))
+		r.Protocol = "WebSocket"
+		if socket, _, err := e.Connect(context.Background(), r); err == nil {
+			socket.Close()
+			t.Fatal("WSS 默认信任了自签证书")
+		}
+		if err := e.SetCACertificates(ca); err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		socket, event, err := e.Connect(ctx, r)
+		if err != nil || event.Status != "101 Switching Protocols" {
+			t.Fatalf("WSS 未使用自定义 CA：%v %+v", err, event)
+		}
+		defer socket.Close()
+		var messages []Event
+		if err := socket.Read(ctx, func(ev Event) { messages = append(messages, ev) }); err != nil {
+			t.Fatal(err)
+		}
+		if len(messages) != 1 || messages[0].Text != "trusted" {
+			t.Fatalf("未收到 WSS 消息：%+v", messages)
+		}
+	})
+}
+
+func TestEngineCAUpdatesDuringRequests(t *testing.T) {
+	srv, ca := engineTLSFixture(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, "trusted")
+	}), nil)
+	e := engineFixture(t)
+	if err := e.SetCACertificates(ca); err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			if err := e.SetCACertificates(ca); err != nil {
+				t.Error(err)
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			if _, err := collectRun(e, context.Background(), engineRequest(srv.URL)); err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 func TestEngineRunHTTP(t *testing.T) {

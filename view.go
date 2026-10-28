@@ -321,6 +321,15 @@ func (a *application) settingsView(c *ui.Context) {
 		ui.Field(c, "全局请求头", func() {
 			ui.TextArea(c.Key("global-headers"), &a.globalHeaders).Grow(1).FillWidth().Font("monospace").Placeholder("Accept: application/json\nAuthorization: Bearer {{token}}")
 		}).Grow(1)
+		ui.Field(c, "CA 证书", func() {
+			ui.Column(c).FillWidth().Gap(8).Children(func() {
+				ui.TextArea(c.Key("ca-cert"), &a.caCertPEM).FillWidth().Height(90).Font("monospace").Label("CA 证书内容").Placeholder("-----BEGIN CERTIFICATE-----\n…\n-----END CERTIFICATE-----")
+				ui.Row(c).Gap(8).Children(func() {
+					ui.Button(c.Key("import-ca"), "导入证书文件").Disabled(a.importingCA).OnClick(a.chooseCACertificates)
+					ui.Button(c.Key("clear-ca"), "清除证书").Disabled(a.caCertPEM == "").OnClick(func() { a.caCertPEM = "" })
+				})
+			})
+		}).Description("追加到系统信任库，用于 HTTPS、SSE 和 WSS。留空使用系统证书，保存配置后生效。")
 	}).Grow(1).MinHeight(0)
 	ui.Row(c).Gap(12).Children(func() {
 		ui.PrimaryButton(c.Key("apply"), "保存配置").OnClick(a.applySettings)

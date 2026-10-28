@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/pem"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -26,6 +27,35 @@ func inputUI(t *testing.T, tt *ui.Tester, label, value string) {
 }
 
 func TestApplicationView(t *testing.T) {
+	t.Run("CA设置输入保存清除及最小窗口布局", func(t *testing.T) {
+		srv := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+		defer srv.Close()
+		ca := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: srv.Certificate().Raw}))
+		a, _ := testApp(t)
+		tt := ui.NewTester(a.view, 940, 680)
+		clickUI(t, tt, "环境与全局请求头")
+		r, ok := tt.Find("CA 证书内容")
+		if !ok || r.H < 70 || r.Y+r.H > 680 {
+			t.Fatalf("最小窗口内 CA 编辑区不可用：%+v", r)
+		}
+		inputUI(t, tt, "CA 证书内容", ca)
+		clickUI(t, tt, "保存配置")
+		if a.workspace.Settings.CACertPEM != ca || a.notice != "" {
+			t.Fatalf("UI CA 输入没有保存：%q", a.notice)
+		}
+		clickUI(t, tt, "清除证书")
+		if a.caCertPEM != "" || a.workspace.Settings.CACertPEM != ca {
+			t.Fatal("清除证书应在保存配置后生效")
+		}
+		clickUI(t, tt, "保存配置")
+		if a.workspace.Settings.CACertPEM != "" {
+			t.Fatal("清除 CA 后未保存")
+		}
+		clickUI(t, tt, "返回请求")
+		if !tt.HasText("请求地址") {
+			t.Fatal("保存 CA 后不能返回请求界面")
+		}
+	})
 	t.Run("流响应刷新不保留撤销历史", func(t *testing.T) {
 		a, _ := testApp(t)
 		a.workspace.Draft.Protocol = "SSE"

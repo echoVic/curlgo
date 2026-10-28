@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -47,12 +49,19 @@ type application struct {
 	urlHandle                                                              ui.Handle
 	list                                                                   ui.ListState
 	toast                                                                  string
+	caCertPEM                                                              string
+	caError                                                                error
+	importingCA                                                            bool
 }
 
 func newApplication(w core.Workspace) *application {
 	a := &application{workspace: w, engine: core.NewEngine(), split: 240, status: "准备就绪", saveStatus: "所有内容仅保存在本机"}
 	a.syncDraft()
 	a.syncSettings()
+	a.caError = a.engine.SetCACertificates(w.Settings.CACertPEM)
+	if a.caError != nil {
+		a.notice = a.caError.Error()
+	}
 	a.responseEditor = &editor.State{Buffer: editor.NewBuffer(""), ReadOnly: true, SoftWrap: true}
 	a.responseEditor.Buffer.SetLanguage(editor.LanguageNamed("JSON"))
 	return a
@@ -175,6 +184,7 @@ func (a *application) syncDraft() {
 }
 func (a *application) syncSettings() {
 	a.globalHeaders = core.FormatHeaders(a.workspace.Settings.GlobalHeaders)
+	a.caCertPEM = a.workspace.Settings.CACertPEM
 	a.envName = a.workspace.Settings.Environment
 	b, _ := json.MarshalIndent(a.workspace.Settings.Environments[a.envName], "", "  ")
 	a.variables = string(b)
@@ -261,11 +271,68 @@ func (a *application) applySettings() {
 		a.notice = "请填写环境名称"
 		return
 	}
+	if err := a.engine.SetCACertificates(a.caCertPEM); err != nil {
+		a.notice = err.Error()
+		return
+	}
+	a.caError = nil
+	a.notice = ""
 	a.workspace.Settings.GlobalHeaders = h
+	a.workspace.Settings.CACertPEM = a.caCertPEM
 	a.workspace.Settings.Environments[name] = vars
 	a.workspace.Settings.Environment = name
 	a.toast = "环境与全局请求头已保存"
 	a.persist()
+}
+func readCACertificates(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("无法读取 CA 证书：%w", err)
+	}
+	defer f.Close()
+	data, err := io.ReadAll(io.LimitReader(f, core.MaxInput+1))
+	if err != nil {
+		return "", fmt.Errorf("无法读取 CA 证书：%w", err)
+	}
+	text := string(data)
+	if strings.TrimSpace(text) == "" {
+		return "", fmt.Errorf("CA 证书文件为空")
+	}
+	if _, err := core.ParseCACertificates(text); err != nil {
+		return "", err
+	}
+	return text, nil
+}
+func (a *application) chooseCACertificates() {
+	if a.importingCA {
+		return
+	}
+	a.importingCA = true
+	parent := a.win
+	go func() {
+		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
+			Parent: parent, Title: "导入 CA 证书", ButtonLabel: "导入",
+			Message: "选择 PEM 格式的公开证书，可包含多张证书。",
+			Filters: []mygo.FileFilter{{Name: "PEM 证书", Extensions: []string{"pem", "crt", "cer"}}},
+		})
+		var text string
+		if err == nil && len(paths) > 0 {
+			text, err = readCACertificates(paths[0])
+		}
+		a.post(func() {
+			a.importingCA = false
+			if a.closed || a.closing {
+				return
+			}
+			if err != nil {
+				a.notice = err.Error()
+			} else if len(paths) > 0 {
+				a.caCertPEM = text
+				a.notice = ""
+				a.toast = "证书已导入，保存配置后生效"
+			}
+		})
+	}()
 }
 func (a *application) stop() {
 	a.generation++
@@ -296,6 +363,10 @@ func (a *application) send() {
 		return
 	}
 	if a.closing {
+		return
+	}
+	if a.caError != nil {
+		a.notice = a.caError.Error() + "；请在设置中修正或清除证书"
 		return
 	}
 	if !a.validateDraft() {

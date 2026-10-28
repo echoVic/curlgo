@@ -31,6 +31,7 @@ type Request struct {
 }
 type Settings struct {
 	GlobalHeaders []Pair                       `json:"globalHeaders,omitempty"`
+	CACertPEM     string                       `json:"caCertPEM,omitempty"`
 	Environments  map[string]map[string]string `json:"environments"`
 	Environment   string                       `json:"environment"`
 	Theme         string                       `json:"theme"`
