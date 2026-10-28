@@ -69,6 +69,8 @@ func (a *application) view(c *ui.Context) {
 					a.settingsView(c)
 				} else if a.page == 2 {
 					a.importView(c)
+				} else if a.page == 3 && a.collectionImport != nil {
+					a.collectionView(c)
 				} else {
 					a.requestView(c)
 				}
@@ -95,7 +97,7 @@ func (a *application) sidebar(c *ui.Context) {
 	t := c.Theme()
 	ui.Column(c).Width(230).Shrink(0).Padding(16, 12).Gap(12).Background(t.Surface).BorderWidth(0, 1, 0, 0).BorderColor(t.Border).Children(func() {
 		ui.PrimaryButton(c.Key("new"), "＋  新请求").FillWidth().Height(36).OnClick(a.newRequest)
-		ui.Button(c.Key("import"), "导入 curl").FillWidth().OnClick(func() { a.page = 2; a.notice = "" })
+		ui.Button(c.Key("import"), "导入 curl / 集合").FillWidth().OnClick(func() { a.page = 2; a.notice = "" })
 		ui.SearchField(c.Key("search"), &a.search).Label("搜索请求")
 		ui.Segmented(c.Key("library"), &a.libraryTab, "收藏", "历史").FillWidth()
 		var rows []struct {
@@ -349,5 +351,12 @@ func (a *application) importView(c *ui.Context) {
 		ui.PrimaryButton(c.Key("do-import"), "导入请求").OnClick(a.importCURL)
 		ui.Button(c.Key("paste-curl"), "从剪贴板粘贴").OnClick(func() { a.curlInput = services.ReadClipboard() })
 		ui.Text(c, "不执行脚本，不读取 @file").FontSize(11).TextColor(t.TextMuted)
+	})
+	ui.Divider(c)
+	ui.Row(c).Gap(12).Children(func() {
+		ui.Text(c, "从其他工具迁移").Bold()
+		ui.Button(c.Key("import-postman"), "导入 Postman 集合").Disabled(a.importingCollection).OnClick(func() { a.chooseCollection(collectionPostman) })
+		ui.Button(c.Key("import-bruno"), "导入 Bruno 集合").Disabled(a.importingCollection).OnClick(func() { a.chooseCollection(collectionBruno) })
+		ui.Text(c, "先预览再加入收藏 · 不执行脚本").FontSize(11).TextColor(t.TextMuted)
 	})
 }

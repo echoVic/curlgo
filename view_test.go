@@ -192,7 +192,7 @@ func TestApplicationView(t *testing.T) {
 	t.Run("导入收藏历史恢复与页面返回", func(t *testing.T) {
 		a, _ := testApp(t)
 		tt := ui.NewTester(a.view, 1200, 820)
-		clickUI(t, tt, "导入 curl")
+		clickUI(t, tt, "导入 curl / 集合")
 		inputUI(t, tt, "curl 命令", `curl https://example.test/imported -H 'X-Test: yes'`)
 		clickUI(t, tt, "导入请求")
 		if a.workspace.Draft.URL != "https://example.test/imported" {

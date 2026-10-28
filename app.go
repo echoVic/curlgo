@@ -54,11 +54,15 @@ type application struct {
 	importingCA                                                            bool
 	selectingFile                                                          string
 	pickUploadFile                                                         func(mygo.OpenDialogOptions) ([]string, error)
+	collectionImport                                                       *core.CollectionImport
+	importingCollection                                                    bool
+	pickCollectionFile                                                     func(mygo.OpenDialogOptions) ([]string, error)
 }
 
 func newApplication(w core.Workspace) *application {
 	a := &application{workspace: w, engine: core.NewEngine(), split: 240, status: "准备就绪", saveStatus: "所有内容仅保存在本机"}
 	a.pickUploadFile = mygo.Dialog.Open
+	a.pickCollectionFile = mygo.Dialog.Open
 	a.engine.RestoreCookies(w.Cookies)
 	a.engine.OnCookiesChanged(func() {
 		a.post(func() { a.persist() })
