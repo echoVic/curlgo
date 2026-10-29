@@ -272,6 +272,7 @@ func (a brunoAuth) apply(r *Request) error {
 type brunoContext struct {
 	root    string // collection directory; relative @file paths resolve here
 	prefix  string
+	groupID string
 	headers []Pair
 	auth    brunoAuth
 }
@@ -333,9 +334,7 @@ func parseBrunoRequest(source string, ctx brunoContext) (Request, []string, erro
 		r.Method = strings.ToUpper(http.get("method"))
 	}
 	r.Name = strings.TrimSpace(meta.get("name"))
-	if r.Name != "" && ctx.prefix != "" {
-		r.Name = ctx.prefix + " / " + r.Name
-	}
+	r.GroupID = ctx.groupID
 	path := map[string]string{}
 	for _, p := range findBlock(blocks, "params:path").enabledPairs() {
 		path[p.key] = p.value
@@ -501,7 +500,9 @@ func ImportBrunoDirectory(root string) (CollectionImport, error) {
 		out.Name = filepath.Base(root)
 	}
 
-	ctx := brunoContext{root: root, auth: brunoAuth{mode: "none"}}
+	out.RootGroupID = NewID()
+	out.Groups = append(out.Groups, RequestGroup{ID: out.RootGroupID, Name: out.Name})
+	ctx := brunoContext{root: root, prefix: out.Name, groupID: out.RootGroupID, auth: brunoAuth{mode: "none"}}
 	collectionVars := map[string]string{}
 	if source, err := readBounded(filepath.Join(root, "collection.bru")); err == nil {
 		blocks, err := parseBru(source)
@@ -599,11 +600,8 @@ func ImportBrunoDirectory(root string) (CollectionImport, error) {
 				out.warn("已跳过 %s：%v", rel, err)
 				continue
 			}
-			if r.Name == "" || r.Name == ctx.prefix+" / " {
+			if r.Name == "" {
 				r.Name = strings.TrimSuffix(entry.name, ".bru")
-				if ctx.prefix != "" {
-					r.Name = ctx.prefix + " / " + r.Name
-				}
 			}
 			seq := 1 << 30
 			if blocks, err := parseBru(source); err == nil {
@@ -626,7 +624,7 @@ func ImportBrunoDirectory(root string) (CollectionImport, error) {
 				return
 			}
 			for _, w := range p.warnings {
-				out.warn("「%s」%s", p.request.Name, w)
+				out.warn("「%s / %s」%s", ctx.prefix, p.request.Name, w)
 			}
 			out.Requests = append(out.Requests, p.request)
 		}
@@ -638,6 +636,10 @@ func ImportBrunoDirectory(root string) (CollectionImport, error) {
 		}
 		sort.Slice(folders, func(i, k int) bool { return folders[i].name < folders[k].name })
 		for _, f := range folders {
+			if len(out.Groups) >= MaxGroups {
+				out.warn("分组超过 %d 个，其余文件夹未导入", MaxGroups)
+				return
+			}
 			child := ctx
 			name := f.name
 			if source, err := readBounded(filepath.Join(f.file, "folder.bru")); err == nil {
@@ -654,11 +656,13 @@ func ImportBrunoDirectory(root string) (CollectionImport, error) {
 			if ctx.prefix != "" {
 				child.prefix = ctx.prefix + " / " + name
 			}
+			child.groupID = NewID()
+			out.Groups = append(out.Groups, RequestGroup{ID: child.groupID, Name: name, ParentID: ctx.groupID})
 			walk(f.file, child, depth+1)
 		}
 	}
 	walk(root, ctx, 0)
-	return out, nil
+	return out, ValidateRequestGroups(out.Groups)
 }
 
 // applyBrunoFolder layers collection.bru or folder.bru settings onto ctx.

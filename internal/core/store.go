@@ -35,6 +35,9 @@ func decodeWorkspace(data []byte) (Workspace, error) {
 	if w.Version != 1 {
 		return w, fmt.Errorf("不支持的存储版本 %d", w.Version)
 	}
+	if err := ValidateRequestGroups(w.Groups); err != nil {
+		return w, err
+	}
 	if w.Settings.Environments == nil {
 		w.Settings.Environments = map[string]map[string]string{}
 	}

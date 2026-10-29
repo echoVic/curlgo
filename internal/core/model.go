@@ -41,6 +41,7 @@ type Pair struct {
 type Request struct {
 	ID              string       `json:"id"`
 	Name            string       `json:"name"`
+	GroupID         string       `json:"groupId,omitempty"`
 	Protocol        string       `json:"protocol"`
 	Method          string       `json:"method"`
 	URL             string       `json:"url"`
@@ -66,12 +67,13 @@ type History struct {
 	Status  string    `json:"status"`
 }
 type Workspace struct {
-	Version  int           `json:"version"`
-	Draft    Request       `json:"draft"`
-	Requests []Request     `json:"requests"`
-	Settings Settings      `json:"settings"`
-	History  []History     `json:"history"`
-	Cookies  []SavedCookie `json:"cookies,omitempty"`
+	Version  int            `json:"version"`
+	Draft    Request        `json:"draft"`
+	Requests []Request      `json:"requests"`
+	Groups   []RequestGroup `json:"groups,omitempty"`
+	Settings Settings       `json:"settings"`
+	History  []History      `json:"history"`
+	Cookies  []SavedCookie  `json:"cookies,omitempty"`
 }
 
 func NewID() string {

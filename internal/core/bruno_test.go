@@ -280,8 +280,11 @@ func TestImportBrunoDirectory(t *testing.T) {
 	for _, r := range got.Requests {
 		names = append(names, r.Name)
 	}
-	if !reflect.DeepEqual(names, []string{"First", "Second", "订单 / List"}) {
+	if !reflect.DeepEqual(names, []string{"First", "Second", "List"}) {
 		t.Fatalf("请求顺序或文件夹名称错误：%v", names)
+	}
+	if len(got.Groups) != 2 || GroupPath(got.Groups, got.Requests[2].GroupID) != "Shop API / 订单" || got.Requests[0].GroupID != got.RootGroupID {
+		t.Fatalf("Bruno 分组结构丢失：%+v", got.Groups)
 	}
 	first := got.Requests[0]
 	if !reflect.DeepEqual(first.Headers, []Pair{{"x-collection", "yes"}, {"Authorization", "Bearer {{token}}"}}) {

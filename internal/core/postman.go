@@ -120,9 +120,8 @@ func hasScript(events []postmanEvent) bool {
 	return false
 }
 
-// ImportPostman reads a Postman Collection v2.1 export. Folders are flattened
-// into request names, collection variables become an environment, and scripts
-// are never executed.
+// ImportPostman reads request templates and folder hierarchy from v2.1.
+// Collection variables become an environment; scripts are never executed.
 func ImportPostman(data []byte) (CollectionImport, error) {
 	out := CollectionImport{Environments: map[string]map[string]string{}}
 	var document struct {
@@ -145,6 +144,8 @@ func ImportPostman(data []byte) (CollectionImport, error) {
 	if out.Name == "" {
 		out.Name = "Postman"
 	}
+	out.RootGroupID = NewID()
+	out.Groups = append(out.Groups, RequestGroup{ID: out.RootGroupID, Name: out.Name})
 	vars := map[string]string{}
 	for _, v := range document.Variable {
 		if !v.Disabled && v.Key != "" {
@@ -157,10 +158,14 @@ func ImportPostman(data []byte) (CollectionImport, error) {
 	if hasScript(document.Event) {
 		out.warn("集合「%s」包含脚本，CurlGo 不会执行脚本，依赖脚本的变量或签名需要手动设置", out.Name)
 	}
-	var walk func(items []postmanItem, prefix string, auth *postmanAuth, depth int)
-	walk = func(items []postmanItem, prefix string, auth *postmanAuth, depth int) {
+	var walk func(items []postmanItem, prefix, groupID string, auth *postmanAuth, depth int)
+	walk = func(items []postmanItem, prefix, groupID string, auth *postmanAuth, depth int) {
 		for _, item := range items {
-			name := strings.TrimSpace(item.Name)
+			leaf := strings.TrimSpace(item.Name)
+			if leaf == "" {
+				leaf = "未命名"
+			}
+			name := leaf
 			if prefix != "" {
 				name = prefix + " / " + name
 			}
@@ -169,8 +174,8 @@ func ImportPostman(data []byte) (CollectionImport, error) {
 					out.warn("「%s」没有请求内容，已跳过", name)
 					continue
 				}
-				if depth > 32 {
-					out.warn("「%s」文件夹层级过深，已跳过", name)
+				if depth >= MaxGroupDepth-1 || len(out.Groups) >= MaxGroups {
+					out.warn("「%s」文件夹层级或数量超过限制，已跳过", name)
 					continue
 				}
 				folderAuth := auth
@@ -183,7 +188,9 @@ func ImportPostman(data []byte) (CollectionImport, error) {
 				if len(item.Variable) > 0 {
 					out.warn("文件夹「%s」定义了变量，未导入，请在环境中设置", name)
 				}
-				walk(item.Item, name, folderAuth, depth+1)
+				child := NewID()
+				out.Groups = append(out.Groups, RequestGroup{ID: child, Name: leaf, ParentID: groupID})
+				walk(item.Item, name, child, folderAuth, depth+1)
 				continue
 			}
 			if len(out.Requests) >= MaxImportRequests {
@@ -198,11 +205,13 @@ func ImportPostman(data []byte) (CollectionImport, error) {
 			if hasScript(item.Event) {
 				out.warn("「%s」包含脚本，CurlGo 不会执行", name)
 			}
+			r.Name = leaf
+			r.GroupID = groupID
 			out.Requests = append(out.Requests, r)
 		}
 	}
-	walk(document.Item, "", document.Auth, 0)
-	return out, nil
+	walk(document.Item, "", out.RootGroupID, document.Auth, 0)
+	return out, ValidateRequestGroups(out.Groups)
 }
 
 func postmanToRequest(out *CollectionImport, item postmanItem, name string, inherited *postmanAuth) (Request, error) {

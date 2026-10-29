@@ -76,8 +76,11 @@ func TestImportPostmanStructure(t *testing.T) {
 		t.Fatalf("集合变量错误：%v", got.Environments)
 	}
 	list := got.Requests[0]
-	if list.Name != "Users / Read / List" || list.Method != "GET" || list.URL != "{{base_url}}/users/42/:missing?q=a%20b#frag" || list.ID == "" || list.Protocol != "HTTP" || list.TimeoutSeconds != 30 {
+	if list.Name != "List" || list.Method != "GET" || list.URL != "{{base_url}}/users/42/:missing?q=a%20b#frag" || list.ID == "" || list.Protocol != "HTTP" || list.TimeoutSeconds != 30 {
 		t.Fatalf("文件夹、路径变量或原始地址错误：%+v", list)
+	}
+	if len(got.Groups) != 3 || GroupPath(got.Groups, list.GroupID) != "Example / Users / Read" || got.Groups[0].ID != got.RootGroupID {
+		t.Fatalf("文件夹层级丢失：%+v", got.Groups)
 	}
 	if !reflect.DeepEqual(list.Headers, []Pair{{"X-On", "{{port}}"}}) {
 		t.Fatalf("请求头错误：%v", list.Headers)
@@ -175,7 +178,7 @@ func TestImportPostmanAuth(t *testing.T) {
 	authorization := func(name string) []string {
 		return HTTPHeaders(requestNamed(t, got, name).Headers).Values("Authorization")
 	}
-	if len(authorization("Open / Public")) != 0 || !reflect.DeepEqual(authorization("Inherit / Private"), []string{"Bearer {{token}}"}) {
+	if len(authorization("Public")) != 0 || !reflect.DeepEqual(authorization("Private"), []string{"Bearer {{token}}"}) {
 		t.Fatal("文件夹认证继承或 noauth 错误")
 	}
 	if want := "Basic " + base64.StdEncoding.EncodeToString([]byte("ada:s:cret")); !reflect.DeepEqual(authorization("Basic"), []string{want}) {

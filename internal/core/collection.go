@@ -14,6 +14,9 @@ import (
 type CollectionImport struct {
 	Name         string
 	Requests     []Request
+	Groups       []RequestGroup
+	RootGroupID  string
+	Environment  string
 	Environments map[string]map[string]string
 	Warnings     []string
 }
