@@ -216,9 +216,30 @@ On a normal run, the jar is saved after execution even when execution fails, inc
 
 For token-based login chains, configure JSON `request.extractors`, for example `[{"variable":"token","source":"json","selector":"/data/access_token"}]`. A header rule uses `source: header` and the header name as `selector`. JSON selectors are RFC 6901 JSON Pointers, not JSONPath; only strings, numbers and booleans can be extracted. Header rules require exactly one value. Disabled rules are skipped.
 
-Extraction runs only after complete successful HTTP 2xx responses, even when captured body bytes are written to a file. All enabled rules must succeed; otherwise exit 2 reports `EXTRACTION_ERROR`, keeps the captured response, and omits partial extracted values. Non-2xx responses skip extraction and keep the existing status/exit contract.
+Extraction runs only after complete successful HTTP 2xx responses and all enabled response assertions passing, even when captured body bytes are written to a file. All enabled extractors must succeed; otherwise exit 2 reports `EXTRACTION_ERROR`, keeps the captured response, and omits partial extracted values. Non-2xx responses skip extraction; assertions still run on complete responses with any status.
 
 On success, `result.extractedVariables` contains explicitly requested values, which can include credentials. Capture them privately, merge them into the next authorized request's `settings.environments`, and select that environment through `settings.environment`. Never echo tokens into reports or shell arguments. CLI does not modify input files, GUI environments, or implicit shared variable files. Inspect the HTTP status and business outcome before continuing the chain. Full format: [response-extraction.md](../../../docs/response-extraction.md).
+
+## Declarative Response Assertions
+
+Configure authorized expectations in JSON `request.assertions`. This example requires HTTP 200 and a JSON boolean at `/ok`:
+
+```json
+[
+  {"name":"status","source":"status","operator":"equals","expected":"200"},
+  {"name":"business","source":"json","operator":"equals","selector":"/ok","expected":"true"}
+]
+```
+
+Sources are `status`, `header`, `json`, and `body`. Status supports `equals` with a canonical 100–599 code. Header and JSON support `equals`, `contains`, and `exists`; body supports `equals` and `contains`. Header selectors are names; JSON selectors are RFC 6901 JSON Pointers. Status and body selectors must be absent or empty.
+
+JSON `expected` is a string containing a JSON scalar literal: `"true"` means boolean true, `"200"` means number 200, and `"\"true\""` means the string true. Equality preserves types and exact numeric precision. JSON contains requires strings; exists accepts present null, objects, and arrays. Header equality/contains require exactly one value; exists permits repeated or empty values. Header/body expectations are ordinary literal text. Selectors and expectations never expand `{{variables}}`. Use at most 100 rules; `disabled: true` skips execution.
+
+After successful transport, every enabled rule produces an entry in `result.assertions.results`, with zero-based configuration `index`, optional ID/name, `passed`, stable `code`, and a fixed message. `result.assertions.passed` summarizes all rules. No active rules means this report is omitted. Truncated capture fails every active rule; transport/body-read failures produce no assertion report. File-backed bodies are evaluated from captured raw bytes.
+
+Any failed assertion returns `ok: false`, `error.code: ASSERTION_FAILED`, exit **4**, and the captured response plus full report. It prevents extraction and omits `extractedVariables`; do not merge variables or continue a login chain on that failure. Cookie capture and explicit jar saving still occur. Output/Cookie save failure takes precedence as `OUTPUT_ERROR` / exit 3. Reports omit actual/expected/selector values; user-provided names and the raw response can still contain secrets.
+
+Dry-run validates assertion configuration but runs no assertions, returns no report, and proves no API outcome. Passing assertions verify only the configured conditions; still inspect remaining authorized business fields. Stable rule codes include `PASSED`, `MISMATCH`, `MISSING_VALUE`, `INVALID_JSON`, `NON_SCALAR`, `TYPE_MISMATCH`, `AMBIGUOUS_HEADER`, `TRUNCATED_RESPONSE`, and `INVALID_BODY`. Full contract: [assertions.md](../../../docs/assertions.md).
 
 ## Multipart And Literal Text
 
@@ -249,7 +270,7 @@ Capture stdout privately and record the process exit status. Normally stdout is 
 |---|---|
 | Help | Help JSON was emitted successfully; no API check occurred |
 | Dry-run | Local preparation and validation JSON output succeeded; no request was sent |
-| Normal run | Response capture, configured extraction when applicable, and output succeeded; not a business success or a 2xx guarantee |
+| Normal run | Response capture, configured assertions, applicable extraction, and output succeeded; verifies only configured conditions, without a general 2xx guarantee |
 
 Use stable `error.code` values and the exit status for machine classification, never match `error.message`. Messages provide safe hints and do not echo raw input, credentials, or underlying error text. Codes remain the contract even when hint wording changes:
 
@@ -258,15 +279,17 @@ Use stable `error.code` values and the exit status for machine classification, n
 | 1 | `INVALID_USAGE`, `INVALID_INPUT`, `INVALID_CURL`, `UNRESOLVED_VARIABLE`, `INVALID_REQUEST`, `REQUEST_BUILD_ERROR` |
 | 2 | `CONNECT_ERROR`, `REDIRECT_ERROR`, `TLS_ERROR`, `TIMEOUT`, `CANCELED`, `BODY_READ_ERROR`, `EXTRACTION_ERROR` |
 | 3 | `OUTPUT_ERROR` when an error envelope can be emitted |
+| 4 | `ASSERTION_FAILED` |
 
 For normal request execution, apply these actions:
 
 | Exit | Meaning | Required action |
 |---|---|---|
-| 0 | Response capture, configured extraction when applicable, and output succeeded | Inspect `result.statusCode` and the expected business fields; HTTP 401, 404, and 500 can all exit 0 |
+| 0 | Response capture, configured assertions, applicable extraction, and output succeeded | Inspect `result.statusCode` and remaining business fields; without status assertions, HTTP 401, 404, and 500 can exit 0 |
 | 1 | Usage, input, configuration, or request construction failed | Fix the authorized input; do not report a completed API check |
 | 2 | Transmission, redirect, TLS, cancellation, timeout, body-read, or configured extraction failure | Inspect `error.code` and any partial result; distinguish failure from HTTP status |
 | 3 | Output body, Cookie snapshot, or stdout write failed | Treat output/state persistence as failed even if response metadata exists |
+| 4 | One or more configured response assertions failed | Inspect `result.assertions`; preserve the response for diagnosis and do not propagate extracted variables |
 
 For normal runs, check both HTTP status and the authorized business assertion. `BODY_READ_ERROR` can retain response metadata and partial body bytes; do not treat those bytes as a complete response. `OUTPUT_ERROR` can retain partial metadata and includes a prior primary error code in its message when one exists; this remains a human hint, not a separate machine-classification field.
 
@@ -293,4 +316,4 @@ Read `result.timing` as milliseconds:
 
 Report the mode first. For help, report only discovered capabilities; for dry-run, report only local validation and never invent HTTP status or timings. For normal runs, report only the sanitized interface or endpoint, HTTP status, selected authorized business fields, and input path. State truncation, partial results, and persistence failures explicitly. Redact secret-bearing URLs and paths; do not paste tokens, Cookie values, full request headers, response bodies, or `Set-Cookie` into reports. Cleanup applies only to owned temporary inputs, captured output, and disposable jars.
 
-V1 executes one HTTP/HTTPS request per call. It is not an assertion DSL, collection runner, headless SSE/WebSocket client, or GUI replay mechanism. Stop when a task requires these unsupported modes instead of treating GUI collection import/export or stream features as CLI support.
+V1 executes one HTTP/HTTPS request per call with optional declarative assertions. It does not execute assertion scripts or provide a collection runner, headless SSE/WebSocket client, or GUI replay mechanism. Stop when a task requires these unsupported modes instead of treating GUI collection import/export or stream features as CLI support.

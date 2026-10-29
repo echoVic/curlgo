@@ -10,7 +10,7 @@
 - Cookie：GUI 共享并持久化 Cookie Jar，重启后恢复，遵循域名、路径、Secure、过期及公共后缀规则；查看当前地址适用值或清空。CLI 跨调用共享需显式指定 Cookie 文件。
 - 自定义 CA，HTTP / HTTPS / SOCKS5 代理与绕过列表；默认校验证书、直连，不自动读取系统代理。
 - 多个环境、全局请求头，URL / Header / 正文使用 `{{name}}` 引用变量；请求同名 Header 覆盖全局配置。
-- 鉴权面板：Bearer、Basic 和 API Key（Header / Query）；响应变量提取：JSON Pointer 或响应头，完整 2xx 后原子写入环境，供后续请求引用。
+- 鉴权面板：Bearer、Basic 和 API Key（Header / Query）；声明式断言：状态码、响应头、JSON 字段及正文，每条规则均有结果；响应变量提取在完整 2xx 且断言通过后原子写入环境，供后续请求引用。
 - curl 文本导入与复制导出，收藏请求，最近 100 条历史恢复，上次草稿自动恢复。
 - 收藏分组；Postman v2.1、Bruno 和原生 CurlGo 集合导入预览，CurlGo / Postman 集合导出；不执行集合脚本。
 - 浅色 / 深色主题，键盘操作，原生可调整的请求与响应分区。
@@ -76,7 +76,7 @@ curlgo run --curl imported.curl --dry-run
 curlgo run --curl - --dry-run <imported.curl
 ```
 
-预检解析输入、展开变量并校验请求与鉴权、CA、Cookie、代理配置；可读取本地输入、CA 与已有 Cookie 文件，multipart 准备会检查普通文件、打开并关闭文件，但不读取文件内容、不上传。不执行 HTTP、DNS、TLS 握手或代理连接，不创建响应正文文件、目录或 Cookie 文件，不保存或更新状态、不运行响应变量提取，也没有 `result`、响应正文或 `timing`。成功只表示本地准备通过，不代表目标可达、TLS 证书链可信、登录或业务成功。
+预检解析输入、展开变量并校验请求与鉴权、断言、CA、Cookie、代理配置；可读取本地输入、CA 与已有 Cookie 文件，multipart 准备会检查普通文件、打开并关闭文件，但不读取文件内容、不上传。不执行 HTTP、DNS、TLS 握手或代理连接，不创建响应正文文件、目录或 Cookie 文件，不保存或更新状态、不运行响应断言或变量提取，也没有 `result`、响应正文或 `timing`。成功只表示本地准备通过，不代表目标可达、TLS 证书链可信、登录或业务成功。
 
 最小 GET 示例的预检输出包含八个 `validation` 字段；`bodyMode: ""` 表示原始正文模式，计数是准备后的请求头与表单项数，不是响应信息：
 
@@ -105,15 +105,15 @@ curlgo run --curl - --dry-run <imported.curl
 |---|---|
 | 帮助 | 帮助 JSON 输出成功，不是 API 检查 |
 | `--dry-run` | 本地准备与预检 JSON 输出成功，没有发送请求 |
-| 普通 `run` | 响应捕获、已配置的提取及输出成功，不代表业务成功；HTTP 401 / 404 / 500 也可退出 0，须检查 `result.statusCode` 与正文 |
+| 普通 `run` | 响应捕获、已配置的断言、适用的提取及输出成功，仅验证所列规则；无断言时 HTTP 401 / 404 / 500 也可退出 0，须检查 `result.statusCode` 与正文 |
 
-机器分类使用稳定的退出码与 `error.code`，不要匹配 `error.message`；消息只提供安全提示，不回显原始凭证、输入或底层错误。退出码 1 为用法、输入、配置或请求构造错误（`INVALID_USAGE`、`INVALID_INPUT`、`INVALID_CURL`、`UNRESOLVED_VARIABLE`、`INVALID_REQUEST`、`REQUEST_BUILD_ERROR`）；2 为执行或提取失败（`CONNECT_ERROR`、`REDIRECT_ERROR`、`TLS_ERROR`、`TIMEOUT`、`CANCELED`、`BODY_READ_ERROR`、`EXTRACTION_ERROR`）；3 为输出路径、正文输出或 Cookie 保存失败（`OUTPUT_ERROR`）。stdout 本身写入失败也退出 3，此时 JSON 可能不完整，stderr 使用固定提示 `CurlGo: 无法写入结果 JSON`。
+机器分类使用稳定的退出码与 `error.code`，不要匹配 `error.message`；消息只提供安全提示，不回显原始凭证、输入或底层错误。退出码 1 为用法、输入、配置或请求构造错误（`INVALID_USAGE`、`INVALID_INPUT`、`INVALID_CURL`、`UNRESOLVED_VARIABLE`、`INVALID_REQUEST`、`REQUEST_BUILD_ERROR`）；2 为执行或提取失败（`CONNECT_ERROR`、`REDIRECT_ERROR`、`TLS_ERROR`、`TIMEOUT`、`CANCELED`、`BODY_READ_ERROR`、`EXTRACTION_ERROR`）；3 为输出路径、正文输出或 Cookie 保存失败（`OUTPUT_ERROR`）；4 为响应断言失败（`ASSERTION_FAILED`）。stdout 本身写入失败也退出 3，此时 JSON 可能不完整，stderr 使用固定提示 `CurlGo: 无法写入结果 JSON`。
 
 ### 普通执行输出
 
 小文本原样放在 `result.body.text`；二进制或超过默认 262144 字节内联阈值的正文保存到 `body.path`，须读取该文件。`--inline-body-bytes` 范围 0–4194304，0 让所有非空正文写文件；捕获最多 4 MiB，`truncated` 为真时不能声称响应完整或直接解析不完整 JSON。文件 0600，默认临时目录 0700，保留供调用方读取与清理；`--out-dir` 须为已有目录，不应删除用户目录或无关文件。`timing` 为毫秒，DNS / 连接 / TLS 累计已完成阶段，TTFB 从执行开始到最后响应首字节，total 到捕获结束；阶段可重叠，不可相加，正文 bytes 为自动解压后的应用字节而非网络流量。
 
-CLI 不加载 GUI 工作区。变量来自 JSON `settings.environments` / `environment`，而非 OS 环境；CA、Cookie、代理分别通过 `--ca-file`、`--cookie-jar`、`--proxy` 显式提供，不读取 `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`。凭证使用 0600 私有文件或 stdin，不放命令行参数；curl 只解析文本，不执行 shell 或隐式 `@file` 读取。响应头、正文和 URL 仍可能含秘密。安全输入、授权 multipart、串行登录链、错误与清理规则见项目技能 [api-test](.trae/skills/api-test/SKILL.md)；v1 不含断言 DSL、集合运行器或无界面 SSE / WebSocket。
+CLI 不加载 GUI 工作区。变量来自 JSON `settings.environments` / `environment`，而非 OS 环境；CA、Cookie、代理分别通过 `--ca-file`、`--cookie-jar`、`--proxy` 显式提供，不读取 `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`。凭证使用 0600 私有文件或 stdin，不放命令行参数；curl 只解析文本，不执行 shell 或隐式 `@file` 读取。响应头、正文和 URL 仍可能含秘密。安全输入、授权 multipart、串行登录链、错误与清理规则见项目技能 [api-test](.trae/skills/api-test/SKILL.md)；v1 不含脚本断言、集合运行器或无界面 SSE / WebSocket。
 
 ### 结构化鉴权
 
@@ -163,6 +163,8 @@ API Key 省略 `location` 时默认 Header。鉴权变量同样从所选 JSON �
 直接输入完整地址发送，或点「导入 curl / 集合」；集合先预览再加入收藏，查询参数在「参数」页编辑。环境、全局请求头、CA 与代理在左下角配置，环境值使用 JSON 字符串对象。Cookie 收到 `Set-Cookie` 后自动保存，重启后恢复，可在 Cookie 页清空。收藏与历史可在左侧切换，收藏支持分组与集合导出。
 
 在「提取」页配置变量名及 `/data/access_token` 等路径，成功后可在下一条请求的鉴权中引用 `{{token}}`。规则、CLI 的 `result.extractedVariables` 契约及集合兼容性见[响应变量提取](docs/response-extraction.md)。
+
+在「断言」页配置状态码、响应头、JSON 字段或正文规则，在「断言结果」页查看逐条结果，也可编辑规则后验证当前响应。失败会保留响应并阻止变量提取；CLI 返回完整报告及退出码 4。JSON 字面量格式、结果代码与用例见[声明式断言](docs/assertions.md)。
 
 | 快捷键 | 功能 |
 |---|---|
