@@ -211,7 +211,7 @@ func (a *application) requestView(c *ui.Context) {
 	})
 	ui.Row(c).Padding(6).Gap(8).Radius(12).Background(t.Surface).BorderWidth(1).BorderColor(t.Border).Children(func() {
 		ui.Select(c.Key("method"), &r.Method, []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}).Width(100).Label("请求方法").Disabled(a.busy || r.Protocol == "WebSocket").OnChange(a.persist)
-		ui.TextInput(c.Key("url"), &r.URL).Bind(&a.urlHandle).Grow(1).Height(36).Placeholder("https://… 或 {{base_url}}/api").Label("请求地址").Disabled(a.busy).OnChange(a.persist).OnSubmit(a.send)
+		ui.TextInput(c.Key("url"), &r.URL).Bind(&a.urlHandle).Grow(1).Height(36).Placeholder("https://… 或 {{base_url}}/api").Label("请求地址").Disabled(a.busy).OnChange(a.queryURLChanged).OnSubmit(a.send)
 		label := "发送  ⌘ ↵"
 		if r.Protocol == "WebSocket" {
 			label = "连接"
@@ -223,7 +223,7 @@ func (a *application) requestView(c *ui.Context) {
 	})
 	ui.SplitVertical(c.Key("panes"), &a.split, func() {
 		ui.Column(c).Fill().Gap(10).Padding(0, 0, 8, 0).Children(func() {
-			ui.Tabs(c.Key("request-tabs"), &a.requestTab, "请求头", "正文", "Cookie", "选项")
+			ui.Tabs(c.Key("request-tabs"), &a.requestTab, "请求头", "正文", "Cookie", "选项", "参数")
 			switch a.requestTab {
 			case 0:
 				ui.Text(c, "单个请求的同名 Header 会覆盖全局 Header").FontSize(11).TextColor(t.TextMuted)
@@ -269,6 +269,8 @@ func (a *application) requestView(c *ui.Context) {
 				})
 				ui.Checkbox(c.Key("redirect"), &r.FollowRedirects, "跟随重定向（最多 10 次）").OnChange(a.persist)
 				ui.Text(c, "校验 TLS 证书 · 代理在「环境与全局请求头」中设置\n流连接的超时仅限制建立连接阶段，可随时停止。").TextColor(t.TextMuted).FontSize(12)
+			case 4:
+				a.queryView(c)
 			}
 		})
 	}, func() { a.responseView(c) }).Grow(1).MinHeight(120)

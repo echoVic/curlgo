@@ -39,17 +39,18 @@ type Pair struct {
 	Value string `json:"value"`
 }
 type Request struct {
-	ID              string     `json:"id"`
-	Name            string     `json:"name"`
-	Protocol        string     `json:"protocol"`
-	Method          string     `json:"method"`
-	URL             string     `json:"url"`
-	Headers         []Pair     `json:"headers,omitempty"`
-	Body            string     `json:"body,omitempty"`
-	BodyMode        BodyMode   `json:"bodyMode,omitempty"`
-	FormParts       []FormPart `json:"formParts,omitempty"`
-	FollowRedirects bool       `json:"followRedirects"`
-	TimeoutSeconds  int        `json:"timeoutSeconds"`
+	ID              string       `json:"id"`
+	Name            string       `json:"name"`
+	Protocol        string       `json:"protocol"`
+	Method          string       `json:"method"`
+	URL             string       `json:"url"`
+	Headers         []Pair       `json:"headers,omitempty"`
+	Body            string       `json:"body,omitempty"`
+	BodyMode        BodyMode     `json:"bodyMode,omitempty"`
+	FormParts       []FormPart   `json:"formParts,omitempty"`
+	QueryParams     []QueryParam `json:"queryParams,omitempty"`
+	FollowRedirects bool         `json:"followRedirects"`
+	TimeoutSeconds  int          `json:"timeoutSeconds"`
 }
 type Settings struct {
 	GlobalHeaders []Pair                       `json:"globalHeaders,omitempty"`
@@ -116,7 +117,7 @@ func Resolve(r Request, s Settings) (Request, error) {
 	}
 	vars := s.Environments[s.Environment]
 	var err error
-	if r.URL, err = Expand(strings.TrimSpace(r.URL), vars); err != nil {
+	if r.URL, err = expandURL(strings.TrimSpace(r.URL), vars); err != nil {
 		return r, err
 	}
 	u, err := url.Parse(r.URL)

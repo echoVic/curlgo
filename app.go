@@ -59,6 +59,7 @@ type application struct {
 	collectionImport                                                       *core.CollectionImport
 	importingCollection                                                    bool
 	pickCollectionFile                                                     func(mygo.OpenDialogOptions) ([]string, error)
+	queryError                                                             error
 }
 
 func newApplication(w core.Workspace) *application {
@@ -94,15 +95,18 @@ func cloneWorkspace(w core.Workspace) core.Workspace {
 	}
 	w.Draft.Headers = append([]core.Pair(nil), w.Draft.Headers...)
 	w.Draft.FormParts = append([]core.FormPart(nil), w.Draft.FormParts...)
+	w.Draft.QueryParams = append([]core.QueryParam(nil), w.Draft.QueryParams...)
 	w.Requests = append([]core.Request(nil), w.Requests...)
 	for i := range w.Requests {
 		w.Requests[i].Headers = append([]core.Pair(nil), w.Requests[i].Headers...)
 		w.Requests[i].FormParts = append([]core.FormPart(nil), w.Requests[i].FormParts...)
+		w.Requests[i].QueryParams = append([]core.QueryParam(nil), w.Requests[i].QueryParams...)
 	}
 	w.History = append([]core.History(nil), w.History...)
 	for i := range w.History {
 		w.History[i].Request.Headers = append([]core.Pair(nil), w.History[i].Request.Headers...)
 		w.History[i].Request.FormParts = append([]core.FormPart(nil), w.History[i].Request.FormParts...)
+		w.History[i].Request.QueryParams = append([]core.QueryParam(nil), w.History[i].Request.QueryParams...)
 	}
 	w.Settings.GlobalHeaders = append([]core.Pair(nil), w.Settings.GlobalHeaders...)
 	envs := make(map[string]map[string]string, len(w.Settings.Environments))
@@ -211,6 +215,7 @@ func (a *application) syncDraft() {
 	}
 	a.headers = core.FormatHeaders(a.workspace.Draft.Headers)
 	a.timeout = fmt.Sprint(a.workspace.Draft.TimeoutSeconds)
+	a.syncQueryParams()
 }
 func (a *application) syncSettings() {
 	a.globalHeaders = core.FormatHeaders(a.workspace.Settings.GlobalHeaders)
@@ -224,6 +229,7 @@ func (a *application) syncSettings() {
 func (a *application) selectRequest(r core.Request) {
 	a.stop()
 	r.FormParts = append([]core.FormPart(nil), r.FormParts...)
+	r.QueryParams = append([]core.QueryParam(nil), r.QueryParams...)
 	a.workspace.Draft = r
 	a.syncDraft()
 	a.response = ""
@@ -241,6 +247,7 @@ func (a *application) saveRequest() {
 	}
 	r := a.workspace.Draft
 	r.FormParts = append([]core.FormPart(nil), r.FormParts...)
+	r.QueryParams = append([]core.QueryParam(nil), r.QueryParams...)
 	if strings.TrimSpace(r.Name) == "" {
 		a.notice = "先给请求起一个名字"
 		return
@@ -402,6 +409,7 @@ func (a *application) stop() {
 }
 func (a *application) addHistory(r core.Request, status string) {
 	r.FormParts = append([]core.FormPart(nil), r.FormParts...)
+	r.QueryParams = append([]core.QueryParam(nil), r.QueryParams...)
 	a.workspace.History = append([]core.History{{Request: r, At: time.Now(), Status: status}}, a.workspace.History...)
 	if len(a.workspace.History) > 100 {
 		a.workspace.History = a.workspace.History[:100]
