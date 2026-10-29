@@ -19,18 +19,6 @@ type responseCapture struct {
 	received, complete, failed, truncated bool
 }
 
-func (a *application) finishResponseExtraction(r core.Request, environment string, generation uint64) {
-	snapshot := &a.capturedResponse
-	if a.closed || a.closing || generation != a.generation || r.ID != a.workspace.Draft.ID ||
-		snapshot.generation != generation || !snapshot.received || snapshot.failed {
-		return
-	}
-	snapshot.complete = true
-	if snapshot.status >= 200 && snapshot.status < 300 {
-		a.applyExtractedVariables(r.Extractors, environment)
-	}
-}
-
 func (a *application) canExtractResponse() bool {
 	s := a.capturedResponse
 	if a.busy || a.closed || a.closing || a.workspace.Draft.Protocol != "HTTP" || !s.complete || s.failed ||
@@ -46,7 +34,7 @@ func (a *application) canExtractResponse() bool {
 }
 
 func (a *application) extractCurrentResponse() {
-	if a.canExtractResponse() {
+	if a.canExtractResponse() && a.evaluateResponseAssertions(a.workspace.Draft.Assertions) {
 		a.applyExtractedVariables(a.workspace.Draft.Extractors, a.workspace.Settings.Environment)
 	}
 }
@@ -110,7 +98,7 @@ func (a *application) removeExtractor(id string) {
 
 func (a *application) extractionView(c *ui.Context) {
 	t := c.Theme()
-	ui.Text(c, "HTTP 2xx 后写入发送时的环境 · 全部规则成功才更新").FontSize(11).TextColor(t.TextMuted)
+	ui.Text(c, "HTTP 2xx 且断言通过后写入发送时的环境 · 全部提取规则成功才更新").FontSize(11).TextColor(t.TextMuted)
 	ui.Scroll(c.Key("extraction-rules")).Grow(1).MinHeight(0).Children(func() {
 		ui.Column(c).FillWidth().Gap(8).Disabled(a.busy).Children(func() {
 			if len(a.workspace.Draft.Extractors) == 0 {

@@ -177,6 +177,7 @@ func (a *application) copySavedRequest(id string) {
 		r.FormParts = append([]core.FormPart(nil), r.FormParts...)
 		r.QueryParams = append([]core.QueryParam(nil), r.QueryParams...)
 		r.Extractors = append([]core.ResponseExtractor(nil), r.Extractors...)
+		r.Assertions = append([]core.ResponseAssertion(nil), r.Assertions...)
 		a.workspace.Requests = append(a.workspace.Requests, r)
 		a.selectRequest(r)
 		a.toast = "收藏已复制"

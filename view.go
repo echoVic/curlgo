@@ -252,9 +252,13 @@ func (a *application) requestView(c *ui.Context) {
 		}
 		ui.PrimaryButton(c.Key("send"), label).Width(112).Height(36).OnClick(a.send)
 	})
-	ui.SplitVertical(c.Key("panes"), &a.split, func() {
+	splitSize, splitView := &a.split, ui.SplitVertical
+	if a.requestTab == 7 {
+		splitSize, splitView = &a.assertionSplit, ui.SplitVerticalPercent
+	}
+	splitView(c.Key("panes"), splitSize, func() {
 		ui.Column(c).Fill().Gap(10).Padding(0, 0, 8, 0).Children(func() {
-			ui.Tabs(c.Key("request-tabs"), &a.requestTab, "请求头", "正文", "Cookie", "选项", "参数", "鉴权", "提取")
+			ui.Tabs(c.Key("request-tabs"), &a.requestTab, "请求头", "正文", "Cookie", "选项", "参数", "鉴权", "提取", "断言")
 			switch a.requestTab {
 			case 0:
 				ui.Text(c, "单个请求的同名 Header 会覆盖全局 Header").FontSize(11).TextColor(t.TextMuted)
@@ -306,6 +310,8 @@ func (a *application) requestView(c *ui.Context) {
 				a.authView(c)
 			case 6:
 				a.extractionView(c)
+			case 7:
+				a.assertionsView(c)
 			}
 		})
 	}, func() { a.responseView(c) }).Grow(1).MinHeight(120)
@@ -319,7 +325,11 @@ func (a *application) responseView(c *ui.Context) {
 			ui.Text(c, a.status).TextColor(t.Accent).FontSize(12).Grow(1)
 			ui.Button(c.Key("copy-response"), "复制响应").OnClick(func() { services.WriteClipboard(a.responseText()); a.toast = "响应已复制" })
 		})
-		ui.Tabs(c.Key("response-tabs"), &a.responseTab, "内容 / 消息", "响应头")
+		ui.Tabs(c.Key("response-tabs"), &a.responseTab, "内容 / 消息", "响应头", "断言结果")
+		if a.responseTab == 2 {
+			a.assertionResultsView(c)
+			return
+		}
 		text := a.responseText()
 		if text == "" {
 			ui.Column(c).Grow(1).FillWidth().Center().Gap(10).Children(func() {

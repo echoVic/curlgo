@@ -46,6 +46,7 @@ type application struct {
 	socket                                                                 *core.Socket
 	generation                                                             uint64
 	split                                                                  float32
+	assertionSplit                                                         float32
 	urlHandle                                                              ui.Handle
 	list                                                                   ui.ListState
 	toast                                                                  string
@@ -70,10 +71,12 @@ type application struct {
 	showCredentials                                                        bool
 	capturedResponse                                                       responseCapture
 	extractionNotice                                                       string
+	assertionReport                                                        *core.AssertionReport
+	assertionNotice                                                        string
 }
 
 func newApplication(w core.Workspace) *application {
-	a := &application{workspace: w, engine: core.NewEngine(), split: 240, status: "准备就绪", saveStatus: "所有内容仅保存在本机"}
+	a := &application{workspace: w, engine: core.NewEngine(), split: 240, assertionSplit: 55, status: "准备就绪", saveStatus: "所有内容仅保存在本机"}
 	a.pickUploadFile = mygo.Dialog.Open
 	a.pickCollectionFile = mygo.Dialog.Open
 	a.pickExportFile = mygo.Dialog.Save
@@ -109,12 +112,14 @@ func cloneWorkspace(w core.Workspace) core.Workspace {
 	w.Draft.FormParts = append([]core.FormPart(nil), w.Draft.FormParts...)
 	w.Draft.QueryParams = append([]core.QueryParam(nil), w.Draft.QueryParams...)
 	w.Draft.Extractors = append([]core.ResponseExtractor(nil), w.Draft.Extractors...)
+	w.Draft.Assertions = append([]core.ResponseAssertion(nil), w.Draft.Assertions...)
 	w.Requests = append([]core.Request(nil), w.Requests...)
 	for i := range w.Requests {
 		w.Requests[i].Headers = append([]core.Pair(nil), w.Requests[i].Headers...)
 		w.Requests[i].FormParts = append([]core.FormPart(nil), w.Requests[i].FormParts...)
 		w.Requests[i].QueryParams = append([]core.QueryParam(nil), w.Requests[i].QueryParams...)
 		w.Requests[i].Extractors = append([]core.ResponseExtractor(nil), w.Requests[i].Extractors...)
+		w.Requests[i].Assertions = append([]core.ResponseAssertion(nil), w.Requests[i].Assertions...)
 	}
 	w.History = append([]core.History(nil), w.History...)
 	for i := range w.History {
@@ -122,6 +127,7 @@ func cloneWorkspace(w core.Workspace) core.Workspace {
 		w.History[i].Request.FormParts = append([]core.FormPart(nil), w.History[i].Request.FormParts...)
 		w.History[i].Request.QueryParams = append([]core.QueryParam(nil), w.History[i].Request.QueryParams...)
 		w.History[i].Request.Extractors = append([]core.ResponseExtractor(nil), w.History[i].Request.Extractors...)
+		w.History[i].Request.Assertions = append([]core.ResponseAssertion(nil), w.History[i].Request.Assertions...)
 	}
 	w.Settings.GlobalHeaders = append([]core.Pair(nil), w.Settings.GlobalHeaders...)
 	envs := make(map[string]map[string]string, len(w.Settings.Environments))
@@ -224,6 +230,11 @@ func (a *application) closeWindow(e *mygo.CloseEvent) {
 }
 func (a *application) syncDraft() {
 	a.showCredentials = false
+	for i := range a.workspace.Draft.Assertions {
+		if a.workspace.Draft.Assertions[i].ID == "" {
+			a.workspace.Draft.Assertions[i].ID = core.NewID()
+		}
+	}
 	for i := range a.workspace.Draft.Extractors {
 		if a.workspace.Draft.Extractors[i].ID == "" {
 			a.workspace.Draft.Extractors[i].ID = core.NewID()
@@ -253,6 +264,7 @@ func (a *application) selectRequest(r core.Request) {
 	r.FormParts = append([]core.FormPart(nil), r.FormParts...)
 	r.QueryParams = append([]core.QueryParam(nil), r.QueryParams...)
 	r.Extractors = append([]core.ResponseExtractor(nil), r.Extractors...)
+	r.Assertions = append([]core.ResponseAssertion(nil), r.Assertions...)
 	a.workspace.Draft = r
 	a.syncDraft()
 	a.response = ""
@@ -260,6 +272,7 @@ func (a *application) selectRequest(r core.Request) {
 	a.responseHeaders = nil
 	a.capturedResponse = responseCapture{}
 	a.extractionNotice = ""
+	a.resetAssertionResult()
 	a.status = "准备就绪"
 	a.page = 0
 	a.notice = ""
@@ -281,6 +294,7 @@ func (a *application) saveRequest() {
 	r.FormParts = append([]core.FormPart(nil), r.FormParts...)
 	r.QueryParams = append([]core.QueryParam(nil), r.QueryParams...)
 	r.Extractors = append([]core.ResponseExtractor(nil), r.Extractors...)
+	r.Assertions = append([]core.ResponseAssertion(nil), r.Assertions...)
 	if strings.TrimSpace(r.Name) == "" {
 		a.notice = "先给请求起一个名字"
 		return
@@ -450,6 +464,7 @@ func (a *application) addHistory(r core.Request, status string) {
 	r.FormParts = append([]core.FormPart(nil), r.FormParts...)
 	r.QueryParams = append([]core.QueryParam(nil), r.QueryParams...)
 	r.Extractors = append([]core.ResponseExtractor(nil), r.Extractors...)
+	r.Assertions = append([]core.ResponseAssertion(nil), r.Assertions...)
 	a.workspace.History = append([]core.History{{Request: r, At: time.Now(), Status: status}}, a.workspace.History...)
 	if len(a.workspace.History) > 100 {
 		a.workspace.History = a.workspace.History[:100]
@@ -489,9 +504,11 @@ func (a *application) send() {
 	a.generation++
 	generation := a.generation
 	r.Extractors = append([]core.ResponseExtractor(nil), r.Extractors...)
+	r.Assertions = append([]core.ResponseAssertion(nil), r.Assertions...)
 	environment := a.workspace.Settings.Environment
 	a.capturedResponse = responseCapture{requestID: r.ID, generation: generation}
 	a.extractionNotice = ""
+	a.resetAssertionResult()
 	ctx, cancel := context.WithCancel(context.Background())
 	a.cancel = cancel
 	a.addHistory(a.workspace.Draft, "已发送")
@@ -553,7 +570,7 @@ func (a *application) send() {
 				}
 				if done {
 					if r.Protocol == "HTTP" && ctx.Err() == nil {
-						a.finishResponseExtraction(r, environment, generation)
+						a.finishHTTPResponse(r, environment, generation)
 					}
 					a.busy = false
 					a.socket = nil
@@ -694,6 +711,10 @@ func (a *application) validateDraft() bool {
 		return false
 	}
 	if err := core.ValidateRequestExtractors(a.workspace.Draft); err != nil {
+		a.notice = err.Error()
+		return false
+	}
+	if err := core.ValidateRequestAssertions(a.workspace.Draft); err != nil {
 		a.notice = err.Error()
 		return false
 	}
