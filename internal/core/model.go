@@ -101,7 +101,7 @@ func Expand(s string, vars map[string]string) (string, error) {
 		return value
 	})
 	if missing != "" {
-		return "", fmt.Errorf("环境变量 %s 未定义", missing)
+		return "", &UnresolvedVariableError{Name: missing}
 	}
 	return out, nil
 }
