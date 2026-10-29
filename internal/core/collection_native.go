@@ -57,7 +57,7 @@ func ImportCurlGoCollection(data []byte) (CollectionImport, error) {
 	}
 	for _, r := range out.Requests {
 		for _, part := range r.FormParts {
-			if part.Kind == FormFile {
+			if part.Kind == FormFile && part.FilePath != "" {
 				out.warn("「%s」引用本地文件 %s，发送时才会读取，请确认文件存在", collectionRequestPath(out.Groups, r), part.FilePath)
 			}
 		}
@@ -157,7 +157,7 @@ func validateCollectionRequest(r Request) error {
 	if r.BodyMode != BodyRaw && r.BodyMode != BodyMultipart {
 		return fmt.Errorf("不支持的正文类型 %q", r.BodyMode)
 	}
-	if len(r.Body) > MaxInput || len(r.URL) > 65536 {
+	if r.BodyMode == BodyRaw && len(r.Body) > MaxInput || len(r.URL) > 65536 {
 		return fmt.Errorf("请求超过大小限制")
 	}
 	if !utf8.ValidString(r.Body) || !utf8.ValidString(r.URL) {
@@ -177,10 +177,16 @@ func validateCollectionRequest(r Request) error {
 	if r.Protocol == "WebSocket" && r.BodyMode == BodyMultipart {
 		return fmt.Errorf("WebSocket 不支持 multipart 表单")
 	}
-	if err := validateFormParts(r.FormParts); err != nil {
-		return err
+	if r.BodyMode == BodyMultipart {
+		if err := validateFormParts(r.FormParts); err != nil {
+			return err
+		}
+	}
+	if len(r.FormParts) > MaxFormParts {
+		return fmt.Errorf("表单最多支持 %d 个字段", MaxFormParts)
 	}
 	formIDs := make(map[string]bool, len(r.FormParts))
+	formSize := 0
 	for _, p := range r.FormParts {
 		if p.ID != "" && (!validCollectionMetadata(p.ID, 256) || formIDs[p.ID]) {
 			return fmt.Errorf("表单字段 ID 无效或重复")
@@ -188,6 +194,13 @@ func validateCollectionRequest(r Request) error {
 		formIDs[p.ID] = true
 		if !utf8.ValidString(p.Name) || !utf8.ValidString(p.Value) || !utf8.ValidString(p.FilePath) {
 			return fmt.Errorf("表单字段必须使用有效的 UTF-8 编码")
+		}
+		if p.Kind != FormText && p.Kind != FormFile {
+			return fmt.Errorf("不支持的表单字段类型")
+		}
+		formSize += len(p.Name) + len(p.Value) + len(p.FilePath)
+		if formSize > MaxInput {
+			return fmt.Errorf("表单字段内容超过 1 MiB")
 		}
 	}
 	size := 0

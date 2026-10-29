@@ -101,6 +101,35 @@ func TestCollectionExportNativeRoundTrip(t *testing.T) {
 	}
 }
 
+func TestCollectionExportInactiveBodyEditors(t *testing.T) {
+	for name, r := range map[string]Request{
+		"blank text row": {BodyMode: BodyRaw, FormParts: []FormPart{{ID: "part", Kind: FormText}}},
+		"unpicked file":  {BodyMode: BodyRaw, FormParts: []FormPart{{ID: "part", Kind: FormFile}}},
+		"inactive raw text": {
+			BodyMode: BodyMultipart, Body: strings.Repeat("x", MaxInput+1),
+			FormParts: []FormPart{{ID: "part", Kind: FormText, Name: "active", Value: "value"}},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r.ID, r.Name, r.Protocol, r.Method, r.URL, r.TimeoutSeconds = "request", name, "HTTP", "POST", "https://example.test", 30
+			if _, err := Resolve(r, Settings{}); err != nil {
+				t.Fatalf("inactive body editor should not block sending: %v", err)
+			}
+			result, err := ExportCollection(Workspace{Requests: []Request{r}}, CollectionExportOptions{Format: CollectionCurlGo})
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := ImportCurlGoCollection(result.Data)
+			if err != nil || len(got.Requests) != 1 || !reflect.DeepEqual(got.Requests[0], r) {
+				t.Fatalf("inactive body editor state was rejected or changed: %+v %v", got, err)
+			}
+			if _, err := ExportCollection(Workspace{Requests: []Request{r}}, CollectionExportOptions{Format: CollectionPostman}); err != nil {
+				t.Fatalf("inactive editor blocked Postman export: %v", err)
+			}
+		})
+	}
+}
+
 func TestCollectionExportSelectedSubtree(t *testing.T) {
 	w := collectionExportWorkspace()
 	result, err := ExportCollection(w, CollectionExportOptions{Name: "Child Only", GroupID: "child", Format: CollectionCurlGo})
