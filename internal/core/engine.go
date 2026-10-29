@@ -23,17 +23,19 @@ import (
 )
 
 type Event struct {
-	Kind      string
-	Text      string
-	Language  string // editor language for a body, empty for plain text
-	Status    string
-	Headers   http.Header
-	Elapsed   time.Duration
-	Bytes     int
-	Truncated bool
-	ID        string
-	Name      string
-	Retry     string
+	Kind       string
+	Text       string
+	Language   string // editor language for a body, empty for plain text
+	Status     string
+	StatusCode int
+	RawBody    []byte // original bounded response bytes, before display formatting
+	Headers    http.Header
+	Elapsed    time.Duration
+	Bytes      int
+	Truncated  bool
+	ID         string
+	Name       string
+	Retry      string
 }
 type Engine struct {
 	mu            sync.RWMutex
@@ -246,7 +248,7 @@ func (e *Engine) Run(ctx context.Context, r Request, emit func(Event)) (runErr e
 		return proxyError(err)
 	}
 	defer resp.Body.Close()
-	emit(Event{Kind: "headers", Status: resp.Status, Headers: resp.Header.Clone(), Elapsed: time.Since(start)})
+	emit(Event{Kind: "headers", Status: resp.Status, StatusCode: resp.StatusCode, Headers: resp.Header.Clone(), Elapsed: time.Since(start)})
 	if r.Protocol == "SSE" {
 		mt, _, _ := mime.ParseMediaType(resp.Header.Get("Content-Type"))
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 || mt != "text/event-stream" {
@@ -267,7 +269,7 @@ func (e *Engine) Run(ctx context.Context, r Request, emit func(Event)) (runErr e
 	if !truncated {
 		body, language = FormatResponse(body, resp.Header.Get("Content-Type"))
 	}
-	emit(Event{Kind: "body", Text: body, Language: language, Bytes: len(data), Elapsed: time.Since(start), Truncated: truncated})
+	emit(Event{Kind: "body", Text: body, RawBody: data, Language: language, Bytes: len(data), Elapsed: time.Since(start), Truncated: truncated})
 	return nil
 }
 

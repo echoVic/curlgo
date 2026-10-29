@@ -39,20 +39,21 @@ type Pair struct {
 	Value string `json:"value"`
 }
 type Request struct {
-	ID              string         `json:"id"`
-	Name            string         `json:"name"`
-	GroupID         string         `json:"groupId,omitempty"`
-	Protocol        string         `json:"protocol"`
-	Method          string         `json:"method"`
-	URL             string         `json:"url"`
-	Headers         []Pair         `json:"headers,omitempty"`
-	Auth            Authentication `json:"auth,omitzero"`
-	Body            string         `json:"body,omitempty"`
-	BodyMode        BodyMode       `json:"bodyMode,omitempty"`
-	FormParts       []FormPart     `json:"formParts,omitempty"`
-	QueryParams     []QueryParam   `json:"queryParams,omitempty"`
-	FollowRedirects bool           `json:"followRedirects"`
-	TimeoutSeconds  int            `json:"timeoutSeconds"`
+	ID              string              `json:"id"`
+	Name            string              `json:"name"`
+	GroupID         string              `json:"groupId,omitempty"`
+	Protocol        string              `json:"protocol"`
+	Method          string              `json:"method"`
+	URL             string              `json:"url"`
+	Headers         []Pair              `json:"headers,omitempty"`
+	Auth            Authentication      `json:"auth,omitzero"`
+	Body            string              `json:"body,omitempty"`
+	BodyMode        BodyMode            `json:"bodyMode,omitempty"`
+	FormParts       []FormPart          `json:"formParts,omitempty"`
+	QueryParams     []QueryParam        `json:"queryParams,omitempty"`
+	Extractors      []ResponseExtractor `json:"extractors,omitempty"`
+	FollowRedirects bool                `json:"followRedirects"`
+	TimeoutSeconds  int                 `json:"timeoutSeconds"`
 }
 type Settings struct {
 	GlobalHeaders []Pair                       `json:"globalHeaders,omitempty"`
@@ -112,6 +113,9 @@ func Expand(s string, vars map[string]string) (string, error) {
 // Resolve does not mutate the saved template. Request headers override globals,
 // case-insensitively; repeated request headers remain repeated on the wire.
 func Resolve(r Request, s Settings) (Request, error) {
+	if err := ValidateRequestExtractors(r); err != nil {
+		return r, err
+	}
 	if r.BodyMode != BodyRaw && r.BodyMode != BodyMultipart {
 		return r, fmt.Errorf("不支持的正文类型")
 	}
