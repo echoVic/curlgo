@@ -125,7 +125,7 @@ func (a *application) collectionExportView(c *ui.Context) {
 		})
 	})
 	ui.Checkbox(c.Key("export-environment"), &opts.IncludeEnvironment, "包含环境与全局请求头")
-	ui.Text(c, "环境值和全局 Header 默认不包含；请求中填写的 Header 与正文会保留。").FontSize(11).TextColor(t.TextMuted)
+	ui.Text(c, "环境值和全局 Header 默认不包含；请求中的 Header、正文与鉴权配置会保留。").FontSize(11).TextColor(t.TextMuted)
 	a.refreshExportPreview()
 	preview := a.exportPreview
 	ui.Scroll(c.Key("export-details")).Grow(1).MinHeight(60).Children(func() {

@@ -67,6 +67,7 @@ type application struct {
 	exportPreview                                                          collectionExportPreview
 	exportingCollection                                                    bool
 	pickExportFile                                                         func(mygo.SaveDialogOptions) (string, error)
+	showCredentials                                                        bool
 }
 
 func newApplication(w core.Workspace) *application {
@@ -217,6 +218,7 @@ func (a *application) closeWindow(e *mygo.CloseEvent) {
 	a.saves <- job
 }
 func (a *application) syncDraft() {
+	a.showCredentials = false
 	for i := range a.workspace.Draft.FormParts {
 		if a.workspace.Draft.FormParts[i].ID == "" {
 			a.workspace.Draft.FormParts[i].ID = core.NewID()
@@ -655,6 +657,10 @@ func (a *application) validateDraft() bool {
 	n, err := strconv.Atoi(a.timeout)
 	if err != nil || n < 1 || n > 3600 {
 		a.notice = "超时为 1–3600 秒"
+		return false
+	}
+	if err := core.ValidateRequestAuthentication(a.workspace.Draft); err != nil {
+		a.notice = err.Error()
 		return false
 	}
 	a.workspace.Draft.Headers = h
