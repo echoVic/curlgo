@@ -29,7 +29,7 @@ func readLimited(r io.Reader, limit int) ([]byte, error) {
 		return nil, err
 	}
 	if len(data) > limit {
-		return nil, errors.New("input exceeds size limit")
+		return nil, errInputTooLarge
 	}
 	return data, nil
 }
@@ -52,31 +52,36 @@ func decodeOne(data []byte, target any) error {
 
 func decodeInput(data []byte, asCurl bool) (inputData, *failure) {
 	if len(data) > core.MaxInput {
-		return inputData{}, inputFailure("INVALID_INPUT", "Invalid input.")
+		return inputData{}, inputFailure("INVALID_INPUT", "Input exceeds 1 MiB. Reduce the input size.")
 	}
 	var input inputData
 	if asCurl {
 		request, err := core.ImportCURL(string(data))
 		if err != nil {
-			return inputData{}, inputFailure("INVALID_CURL", "Invalid curl input.")
+			return inputData{}, inputFailure("INVALID_CURL", "Invalid or unsupported curl input. Use supported curl options without shell execution.")
 		}
 		input.Request = request
 	} else {
 		var envelope requestEnvelope
-		if err := decodeOne(data, &envelope); err != nil || envelope.SchemaVersion != 1 ||
-			len(envelope.Request) == 0 || bytes.Equal(bytes.TrimSpace(envelope.Request), []byte("null")) {
-			return inputData{}, inputFailure("INVALID_INPUT", "Invalid input.")
+		if err := decodeOne(data, &envelope); err != nil {
+			return inputData{}, inputFailure("INVALID_INPUT", "Invalid request JSON envelope. Use one JSON document with supported fields.")
+		}
+		if envelope.SchemaVersion != 1 {
+			return inputData{}, inputFailure("INVALID_INPUT", "Unsupported schema version. Use schemaVersion 1.")
+		}
+		if len(envelope.Request) == 0 || bytes.Equal(bytes.TrimSpace(envelope.Request), []byte("null")) {
+			return inputData{}, inputFailure("INVALID_INPUT", "Missing request object. Provide a non-null request object.")
 		}
 		input.Request = core.Request{
 			Method: "GET", Protocol: "HTTP", TimeoutSeconds: 30, FollowRedirects: true,
 		}
 		if err := decodeOne(envelope.Request, &input.Request); err != nil {
-			return inputData{}, inputFailure("INVALID_INPUT", "Invalid input.")
+			return inputData{}, inputFailure("INVALID_INPUT", "Invalid request JSON fields. Check field types and supported fields.")
 		}
 		input.Settings = envelope.Settings
 	}
 	if input.Request.Protocol != "HTTP" {
-		return inputData{}, inputFailure("INVALID_INPUT", "Invalid input.")
+		return inputData{}, inputFailure("INVALID_INPUT", "Unsupported request protocol. Use HTTP.")
 	}
 	request, err := core.Resolve(input.Request, input.Settings)
 	if err != nil {

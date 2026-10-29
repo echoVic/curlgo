@@ -155,14 +155,9 @@ func TestInputInvalid(t *testing.T) {
 		{"bad_body_mode", `{"schemaVersion":1,"request":{"url":"https://example.test","bodyMode":"private_marker"}}`, "INVALID_REQUEST"},
 		{"bad_form_part", `{"schemaVersion":1,"request":{"url":"https://example.test","bodyMode":"multipart","formParts":[{"kind":"file","name":"private_marker","filePath":"relative"}]}}`, "INVALID_REQUEST"},
 	}
-	messages := make(map[string]string)
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			message := inputTestFailure(t, []byte(tc.data), false, tc.code)
-			if previous, ok := messages[tc.code]; ok && message != previous {
-				t.Fatalf("message varies for code %s", tc.code)
-			}
-			messages[tc.code] = message
+			inputTestFailure(t, []byte(tc.data), false, tc.code)
 		})
 	}
 }

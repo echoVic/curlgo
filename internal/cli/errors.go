@@ -1,5 +1,9 @@
 package cli
 
+import "errors"
+
+var errInputTooLarge = errors.New("input exceeds size limit")
+
 type ExitCode int
 
 const (

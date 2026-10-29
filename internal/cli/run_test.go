@@ -68,7 +68,7 @@ func TestRunRejectsUsage(t *testing.T) {
 			reader := &inputTestReader{Reader: strings.NewReader("private_marker")}
 			exit, value, raw := runTestInvoke(t, reader, args...)
 			if exit != ExitInput || value.OK || value.Result != nil || value.Error == nil ||
-				value.Error.Code != "INVALID_USAGE" || value.Error.Message != "Invalid usage." ||
+				value.Error.Code != "INVALID_USAGE" || value.Error.Message == "" ||
 				strings.Contains(raw, "private_marker") || reader.read != 0 {
 				t.Fatalf("exit=%d, envelope=%+v, read=%d", exit, value, reader.read)
 			}
@@ -191,7 +191,7 @@ func TestConfigureEngine(t *testing.T) {
 				t.Fatalf("failure=%+v, want failure=%v", fail, tc.wantFail)
 			}
 			if fail != nil && (fail.Code != "INVALID_INPUT" || fail.Exit != ExitInput ||
-				fail.Message != "Invalid input.") {
+				fail.Message == "" || strings.Contains(fail.Message, "private_marker")) {
 				t.Fatalf("unsafe or unmapped configuration failure: %+v", fail)
 			}
 		})

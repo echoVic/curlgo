@@ -98,7 +98,7 @@ func TestRunHelpRequiresValidFlagSyntax(t *testing.T) {
 			reader := &inputTestReader{Reader: strings.NewReader("private_marker")}
 			exit, value, raw := runTestInvoke(t, reader, args...)
 			if exit != ExitInput || value.OK || value.Result != nil || value.Error == nil ||
-				value.Error.Code != "INVALID_USAGE" || value.Error.Message != "Invalid usage." ||
+				value.Error.Code != "INVALID_USAGE" || value.Error.Message == "" ||
 				reader.read != 0 || strings.Contains(raw, "private_marker") {
 				t.Fatalf("exit=%d, envelope=%+v, read=%d", exit, value, reader.read)
 			}
@@ -239,7 +239,7 @@ func TestDispatchRejectsInvalidRootHelp(t *testing.T) {
 				t.Fatal(err)
 			}
 			if !handled || exit != ExitInput || value.OK || value.Result != nil || value.Help != nil ||
-				value.Error == nil || value.Error.Code != "INVALID_USAGE" || value.Error.Message != "Invalid usage." ||
+				value.Error == nil || value.Error.Code != "INVALID_USAGE" || value.Error.Message != "Invalid help command. Use 'curlgo help' or 'curlgo help run'." ||
 				reader.read != 0 || stderr.Len() != 0 || strings.Contains(stdout.String(), "private_marker") {
 				t.Fatalf("handled=%v, exit=%d, envelope=%+v, read=%d, stderr=%q",
 					handled, exit, value, reader.read, stderr.String())

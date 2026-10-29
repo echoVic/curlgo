@@ -140,7 +140,7 @@ func TestMainCLIAcceptance(t *testing.T) {
 				}
 				value := mainCLIDecode(t, stdout.String())
 				if value.OK || value.Result != nil || len(value.Help) != 0 || value.Error == nil ||
-					value.Error.Code != "INVALID_USAGE" || value.Error.Message != "Invalid usage." ||
+					value.Error.Code != "INVALID_USAGE" || value.Error.Message == "" ||
 					stderr.Len() != 0 || strings.Contains(stdout.String(), "private_marker") {
 					t.Fatalf("usage envelope=%+v, stderr=%q", value, stderr.String())
 				}

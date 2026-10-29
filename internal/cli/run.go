@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"io"
 	"os"
@@ -27,32 +28,41 @@ func configureEngine(e *core.Engine, settings core.Settings, options runOptions)
 	if options.caFile != "" {
 		data, err := readSource(options.caFile, nil)
 		if err != nil {
-			return inputFailure("INVALID_INPUT", "Invalid input.")
+			if errors.Is(err, errInputTooLarge) {
+				return inputFailure("INVALID_INPUT", "CA file exceeds 1 MiB. Reduce the file size.")
+			}
+			return inputFailure("INVALID_INPUT", "Cannot read CA file. Check that it is readable.")
 		}
 		if ca != "" && strings.TrimSpace(ca) != strings.TrimSpace(string(data)) {
-			return inputFailure("INVALID_INPUT", "Invalid input.")
+			return inputFailure("INVALID_INPUT", "Conflicting CA sources. Use matching inline and file certificates.")
 		}
 		ca = string(data)
 	}
 	if err := e.SetCACertificates(ca); err != nil {
-		return inputFailure("INVALID_INPUT", "Invalid input.")
+		return inputFailure("INVALID_INPUT", "Invalid CA certificates. Use valid certificate-only PEM.")
 	}
 	proxy := settings.Proxy
+	inputURL, err := core.ParseProxy(proxy.URL)
+	if err != nil {
+		return inputFailure("INVALID_INPUT", "Invalid input proxy address. Use a supported proxy address.")
+	}
 	if options.proxy != "" {
 		commandURL, err := core.ParseProxy(options.proxy)
 		if err != nil || commandURL == nil {
-			return inputFailure("INVALID_INPUT", "Invalid input.")
+			return inputFailure("INVALID_INPUT", "Invalid --proxy value. Use a supported proxy address.")
 		}
 		if proxy.URL != "" {
-			inputURL, err := core.ParseProxy(proxy.URL)
-			if err != nil || inputURL == nil || commandURL.String() != inputURL.String() {
-				return inputFailure("INVALID_INPUT", "Invalid input.")
+			if inputURL == nil {
+				return inputFailure("INVALID_INPUT", "Invalid input proxy address. Use a supported proxy address.")
+			}
+			if commandURL.String() != inputURL.String() {
+				return inputFailure("INVALID_INPUT", "Conflicting proxy sources. Use matching input and flag addresses.")
 			}
 		}
 		proxy.URL = commandURL.String()
 	}
 	if err := e.SetProxy(proxy); err != nil {
-		return inputFailure("INVALID_INPUT", "Invalid input.")
+		return inputFailure("INVALID_INPUT", "Invalid proxy settings. Check the proxy address and bypass list.")
 	}
 	return nil
 }
@@ -66,9 +76,11 @@ func Run(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, args []
 			Error:         &errorValue{Code: fail.Code, Message: fail.Message},
 		}, fail.Exit)
 	}
-	parseErr := flags.Parse(args)
-	if parseErr != nil || flags.NArg() != 0 {
-		return respondFailure(inputFailure("INVALID_USAGE", "Invalid usage."))
+	if err := flags.Parse(args); err != nil {
+		return respondFailure(inputFailure("INVALID_USAGE", "Invalid flag syntax. Use 'curlgo run --help' for usage."))
+	}
+	if flags.NArg() != 0 {
+		return respondFailure(inputFailure("INVALID_USAGE", "Unexpected positional arguments. Use only named run flags."))
 	}
 	if options.help {
 		return emit(stdout, stderr, envelope{SchemaVersion: 1, OK: true, Help: runHelp(flags)}, ExitOK)
@@ -84,10 +96,17 @@ func Run(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, args []
 			outDirSet = true
 		}
 	})
-	if requestSet == curlSet ||
-		options.request == "" && options.curl == "" ||
-		options.inlineBytes < 0 || options.inlineBytes > core.MaxBody {
-		return respondFailure(inputFailure("INVALID_USAGE", "Invalid usage."))
+	if requestSet && curlSet {
+		return respondFailure(inputFailure("INVALID_USAGE", "Conflicting input sources. Use only one of --request or --curl."))
+	}
+	if !requestSet && !curlSet {
+		return respondFailure(inputFailure("INVALID_USAGE", "Missing input source. Provide --request or --curl."))
+	}
+	if options.request == "" && options.curl == "" {
+		return respondFailure(inputFailure("INVALID_USAGE", "Empty input source. Provide a file or - for stdin."))
+	}
+	if options.inlineBytes < 0 || options.inlineBytes > core.MaxBody {
+		return respondFailure(inputFailure("INVALID_USAGE", "Invalid inline body limit. Use a nonnegative value no larger than 4 MiB."))
 	}
 	path := options.request
 	if path == "" {
@@ -95,7 +114,10 @@ func Run(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, args []
 	}
 	data, err := readSource(path, stdin)
 	if err != nil {
-		return respondFailure(inputFailure("INVALID_INPUT", "Invalid input."))
+		if errors.Is(err, errInputTooLarge) {
+			return respondFailure(inputFailure("INVALID_INPUT", "Input exceeds 1 MiB. Reduce the input size."))
+		}
+		return respondFailure(inputFailure("INVALID_INPUT", "Cannot read input source. Check that it is readable."))
 	}
 	input, fail := decodeInput(data, curlSet)
 	if fail != nil {
@@ -115,7 +137,11 @@ func Run(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, args []
 	if options.cookieJar != "" {
 		cookies, err = core.LoadCookieFile(options.cookieJar)
 		if err != nil {
-			return respondFailure(inputFailure("INVALID_INPUT", "Invalid input."))
+			var pathErr *os.PathError
+			if errors.As(err, &pathErr) {
+				return respondFailure(inputFailure("INVALID_INPUT", "Cannot read cookie jar. Check that it is readable."))
+			}
+			return respondFailure(inputFailure("INVALID_INPUT", "Invalid or unsupported cookie jar. Use a version-1 cookie snapshot."))
 		}
 	}
 	if options.dryRun {

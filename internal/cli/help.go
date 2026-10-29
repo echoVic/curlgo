@@ -79,7 +79,7 @@ func Dispatch(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, ar
 		if !root && (len(args) != 2 || args[1] != "run") {
 			return emit(stdout, stderr, envelope{
 				SchemaVersion: 1,
-				Error:         &errorValue{Code: "INVALID_USAGE", Message: "Invalid usage."},
+				Error:         &errorValue{Code: "INVALID_USAGE", Message: "Invalid help command. Use 'curlgo help' or 'curlgo help run'."},
 			}, ExitInput), true
 		}
 	case "-h", "--help":
@@ -87,7 +87,7 @@ func Dispatch(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, ar
 		if len(args) != 1 {
 			return emit(stdout, stderr, envelope{
 				SchemaVersion: 1,
-				Error:         &errorValue{Code: "INVALID_USAGE", Message: "Invalid usage."},
+				Error:         &errorValue{Code: "INVALID_USAGE", Message: "Invalid help command. Use 'curlgo help' or 'curlgo help run'."},
 			}, ExitInput), true
 		}
 	default:
