@@ -85,7 +85,7 @@ func Run(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, args []
 	if options.help {
 		return emit(stdout, stderr, envelope{SchemaVersion: 1, OK: true, Help: runHelp(flags)}, ExitOK)
 	}
-	var requestSet, curlSet, outDirSet bool
+	var requestSet, curlSet, outDirSet, secretsSet bool
 	flags.Visit(func(f *flag.Flag) {
 		switch f.Name {
 		case "request":
@@ -94,6 +94,8 @@ func Run(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, args []
 			curlSet = true
 		case "out-dir":
 			outDirSet = true
+		case "secrets-file":
+			secretsSet = true
 		}
 	})
 	if requestSet && curlSet {
@@ -108,6 +110,14 @@ func Run(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, args []
 	if options.inlineBytes < 0 || options.inlineBytes > core.MaxBody {
 		return respondFailure(inputFailure("INVALID_USAGE", "Invalid inline body limit. Use a nonnegative value no larger than 4 MiB."))
 	}
+	var secrets map[string]string
+	if secretsSet {
+		var fail *failure
+		secrets, fail = readSecretsFile(options.secretsFile)
+		if fail != nil {
+			return respondFailure(fail)
+		}
+	}
 	path := options.request
 	if path == "" {
 		path = options.curl
@@ -119,7 +129,7 @@ func Run(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, args []
 		}
 		return respondFailure(inputFailure("INVALID_INPUT", "Cannot read input source. Check that it is readable."))
 	}
-	input, fail := decodeInput(data, curlSet)
+	input, fail := decodeInputWithSecrets(data, curlSet, secrets)
 	if fail != nil {
 		return respondFailure(fail)
 	}

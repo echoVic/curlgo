@@ -51,7 +51,7 @@ func runHelp(flags *flag.FlagSet) *helpValue {
 		},
 		ExitCodes: []helpExitCode{
 			{ExitOK, "Success; HTTP responses, including 4xx and 5xx, are not execution failures."},
-			{ExitInput, "Invalid usage, input, or request."},
+			{ExitInput, "Invalid usage, input, or request, including MISSING_SECRET and INVALID_SECRETS."},
 			{ExitExecution, "HTTP execution failure, including timeout or cancellation."},
 			{ExitOutput, "Unable to write output."},
 			{ExitAssertion, "Response assertions failed; the captured HTTP response is retained."},

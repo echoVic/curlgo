@@ -132,7 +132,7 @@ func TestHelpDescribesRunContract(t *testing.T) {
 		t.Fatalf("help limits=%+v", value.Limits)
 	}
 	wantDefaults := map[string]string{
-		"request": "", "curl": "", "ca-file": "", "cookie-jar": "", "proxy": "", "out-dir": "",
+		"request": "", "curl": "", "ca-file": "", "cookie-jar": "", "proxy": "", "out-dir": "", "secrets-file": "",
 		"inline-body-bytes": strconv.Itoa(256 << 10), "help": "false", "h": "false", "dry-run": "false",
 	}
 	if len(value.Options) != len(wantDefaults) {

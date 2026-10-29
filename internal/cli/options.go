@@ -9,6 +9,7 @@ const defaultInlineBodyBytes = 256 << 10
 
 type runOptions struct {
 	request, curl, caFile, cookieJar, proxy, outDir string
+	secretsFile                                     string
 	inlineBytes                                     int
 	help                                            bool
 	dryRun                                          bool
@@ -19,6 +20,7 @@ func newRunFlagSet(options *runOptions) *flag.FlagSet {
 	flags.SetOutput(io.Discard)
 	flags.StringVar(&options.request, "request", "", "Request JSON path or -")
 	flags.StringVar(&options.curl, "curl", "", "Curl text path or -")
+	flags.StringVar(&options.secretsFile, "secrets-file", "", "Private JSON `path`, at most 1 MiB: schemaVersion 1 and variables with plain names; no stdin or inline values. Unix requires owner-only permissions; Windows ACLs are not checked")
 	flags.StringVar(&options.caFile, "ca-file", "", "CA PEM file")
 	flags.StringVar(&options.cookieJar, "cookie-jar", "", "Cookie snapshot file")
 	flags.StringVar(&options.proxy, "proxy", "", "Explicit proxy")

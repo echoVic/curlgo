@@ -22,3 +22,7 @@ type failure struct {
 func inputFailure(code, message string) *failure {
 	return &failure{Code: code, Message: message, Exit: ExitInput}
 }
+
+func invalidSecretsFailure() *failure {
+	return inputFailure("INVALID_SECRETS", "Invalid secrets source. Use a private regular file containing valid schemaVersion 1 secrets JSON.")
+}

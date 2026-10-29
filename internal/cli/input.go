@@ -51,8 +51,15 @@ func decodeOne(data []byte, target any) error {
 }
 
 func decodeInput(data []byte, asCurl bool) (inputData, *failure) {
+	return decodeInputWithSecrets(data, asCurl, nil)
+}
+
+func decodeInputWithSecrets(data []byte, asCurl bool, secrets map[string]string) (inputData, *failure) {
 	if len(data) > core.MaxInput {
 		return inputData{}, inputFailure("INVALID_INPUT", "Input exceeds 1 MiB. Reduce the input size.")
+	}
+	if err := core.ValidateSecretValues(secrets); err != nil {
+		return inputData{}, invalidSecretsFailure()
 	}
 	var input inputData
 	if asCurl {
@@ -83,8 +90,12 @@ func decodeInput(data []byte, asCurl bool) (inputData, *failure) {
 	if input.Request.Protocol != "HTTP" {
 		return inputData{}, inputFailure("INVALID_INPUT", "Unsupported request protocol. Use HTTP.")
 	}
-	request, err := core.Resolve(input.Request, input.Settings)
+	request, err := core.ResolveWithSecrets(input.Request, input.Settings, secrets)
 	if err != nil {
+		var missing *core.MissingSecretError
+		if errors.As(err, &missing) {
+			return inputData{}, inputFailure("MISSING_SECRET", "Required secret is unavailable. Provide it using --secrets-file.")
+		}
 		var unresolved *core.UnresolvedVariableError
 		if errors.As(err, &unresolved) {
 			return inputData{}, inputFailure("UNRESOLVED_VARIABLE", "Unresolved request variable.")
