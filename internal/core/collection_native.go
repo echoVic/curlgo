@@ -180,6 +180,9 @@ func validateCollectionRequest(r Request) error {
 	if err := ValidateRequestExtractors(r); err != nil {
 		return err
 	}
+	if err := ValidateRequestAssertions(r); err != nil {
+		return err
+	}
 	if r.Protocol == "WebSocket" && r.BodyMode == BodyMultipart {
 		return fmt.Errorf("WebSocket 不支持 multipart 表单")
 	}

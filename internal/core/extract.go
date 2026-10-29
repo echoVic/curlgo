@@ -1,10 +1,8 @@
 package core
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -140,10 +138,9 @@ func ExtractVariables(rules []ResponseExtractor, headers http.Header, body []byt
 	}
 	var document any
 	if needsJSON {
-		decoder := json.NewDecoder(bytes.NewReader(body))
-		decoder.UseNumber()
-		var trailing any
-		if !utf8.Valid(body) || decoder.Decode(&document) != nil || decoder.Decode(&trailing) != io.EOF {
+		var ok bool
+		document, ok = decodeResponseJSON(body)
+		if !ok {
 			return nil, &ExtractionError{Code: ExtractionInvalidJSON}
 		}
 	}
@@ -159,12 +156,7 @@ func ExtractVariables(rules []ResponseExtractor, headers http.Header, body []byt
 			tokens, _ := pointerTokens(r.Selector) // validated above
 			value, code = extractJSONScalar(document, tokens)
 		} else {
-			var found []string
-			for k, v := range headers {
-				if strings.EqualFold(k, r.Selector) {
-					found = append(found, v...)
-				}
-			}
+			found := responseHeaderValues(headers, r.Selector)
 			switch len(found) {
 			case 0:
 				code = ExtractionMissing
@@ -217,23 +209,9 @@ func pointerTokens(pointer string) ([]string, bool) {
 }
 
 func extractJSONScalar(value any, tokens []string) (string, ExtractionErrorCode) {
-	for _, token := range tokens {
-		switch node := value.(type) {
-		case map[string]any:
-			var ok bool
-			value, ok = node[token]
-			if !ok {
-				return "", ExtractionMissing
-			}
-		case []any:
-			index, err := strconv.Atoi(token)
-			if err != nil || index < 0 || index >= len(node) || strconv.Itoa(index) != token {
-				return "", ExtractionMissing
-			}
-			value = node[index]
-		default:
-			return "", ExtractionMissing
-		}
+	value, found := lookupJSONPointer(value, tokens)
+	if !found {
+		return "", ExtractionMissing
 	}
 	switch scalar := value.(type) {
 	case string:

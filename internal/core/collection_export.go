@@ -77,6 +77,7 @@ func ExportCollection(w Workspace, opts CollectionExportOptions) (CollectionExpo
 		r.FormParts = slices.Clone(r.FormParts)
 		r.QueryParams = slices.Clone(r.QueryParams)
 		r.Extractors = slices.Clone(r.Extractors)
+		r.Assertions = slices.Clone(r.Assertions)
 		if r.GroupID != "" && !knownGroups[r.GroupID] {
 			warnings.warn("「%s」引用了不存在的分组 %q，已按未分组导出，原收藏不变", r.Name, r.GroupID)
 			r.GroupID = ""
@@ -239,6 +240,7 @@ func encodePostmanCollection(document nativeCollection) (exportPostmanCollection
 	}
 	var warnings CollectionImport
 	var extractionWarnings []string
+	var assertionWarnings []string
 	for _, r := range document.Requests {
 		requests[r.GroupID] = append(requests[r.GroupID], r)
 		path := collectionRequestPath(document.Groups, r)
@@ -250,6 +252,9 @@ func encodePostmanCollection(document nativeCollection) (exportPostmanCollection
 		}
 		if len(r.Extractors) > 0 {
 			extractionWarnings = append(extractionWarnings, fmt.Sprintf("「%s」的响应提取规则（包括禁用行）不会在 Postman 格式中保留；CurlGo 格式可完整保留提取配置", path))
+		}
+		if len(r.Assertions) > 0 {
+			assertionWarnings = append(assertionWarnings, fmt.Sprintf("「%s」的响应断言规则（包括禁用行）不会在 Postman 格式中保留；CurlGo 格式可完整保留断言配置", path))
 		}
 		if r.BodyMode == BodyRaw && r.Body != "" {
 			hasContentType := false
@@ -286,7 +291,7 @@ func encodePostmanCollection(document nativeCollection) (exportPostmanCollection
 	for _, key := range keys {
 		out.Variable = append(out.Variable, exportPostmanVariable{Key: key, Value: vars[key], Type: "string"})
 	}
-	return out, append(warnings.Warnings, extractionWarnings...)
+	return out, append(append(warnings.Warnings, extractionWarnings...), assertionWarnings...)
 }
 
 func collectionPostmanRequest(r Request) *exportPostmanRequest {

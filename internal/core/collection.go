@@ -154,6 +154,9 @@ func checkImported(r Request) error {
 	if err := ValidateRequestExtractors(r); err != nil {
 		return err
 	}
+	if err := ValidateRequestAssertions(r); err != nil {
+		return err
+	}
 	if r.BodyMode == BodyMultipart {
 		return validateFormParts(r.FormParts)
 	}

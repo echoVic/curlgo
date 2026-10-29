@@ -52,6 +52,7 @@ type Request struct {
 	FormParts       []FormPart          `json:"formParts,omitempty"`
 	QueryParams     []QueryParam        `json:"queryParams,omitempty"`
 	Extractors      []ResponseExtractor `json:"extractors,omitempty"`
+	Assertions      []ResponseAssertion `json:"assertions,omitempty"`
 	FollowRedirects bool                `json:"followRedirects"`
 	TimeoutSeconds  int                 `json:"timeoutSeconds"`
 }
@@ -113,6 +114,9 @@ func Expand(s string, vars map[string]string) (string, error) {
 // Resolve does not mutate the saved template. Request headers override globals,
 // case-insensitively; repeated request headers remain repeated on the wire.
 func Resolve(r Request, s Settings) (Request, error) {
+	if err := ValidateRequestAssertions(r); err != nil {
+		return r, err
+	}
 	if err := ValidateRequestExtractors(r); err != nil {
 		return r, err
 	}
