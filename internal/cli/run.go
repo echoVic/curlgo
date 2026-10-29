@@ -10,11 +10,6 @@ import (
 	"github.com/echoVic/curlgo/internal/core"
 )
 
-type runOptions struct {
-	request, curl, caFile, cookieJar, proxy, outDir string
-	inlineBytes                                     int
-}
-
 func readSource(path string, stdin io.Reader) ([]byte, error) {
 	if path == "-" && stdin != nil {
 		return readLimited(stdin, core.MaxInput)
@@ -64,15 +59,7 @@ func configureEngine(e *core.Engine, settings core.Settings, options runOptions)
 
 func Run(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, args []string) ExitCode {
 	var options runOptions
-	flags := flag.NewFlagSet("curlgo run", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
-	flags.StringVar(&options.request, "request", "", "Request JSON path or -")
-	flags.StringVar(&options.curl, "curl", "", "Curl text path or -")
-	flags.StringVar(&options.caFile, "ca-file", "", "CA PEM file")
-	flags.StringVar(&options.cookieJar, "cookie-jar", "", "Cookie snapshot file")
-	flags.StringVar(&options.proxy, "proxy", "", "Explicit proxy")
-	flags.StringVar(&options.outDir, "out-dir", "", "Existing response body directory")
-	flags.IntVar(&options.inlineBytes, "inline-body-bytes", 256<<10, "Inline response body byte limit")
+	flags := newRunFlagSet(&options)
 	respondFailure := func(fail *failure) ExitCode {
 		return emit(stdout, stderr, envelope{
 			SchemaVersion: 1,
@@ -80,6 +67,12 @@ func Run(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, args []
 		}, fail.Exit)
 	}
 	parseErr := flags.Parse(args)
+	if parseErr != nil || flags.NArg() != 0 {
+		return respondFailure(inputFailure("INVALID_USAGE", "Invalid usage."))
+	}
+	if options.help {
+		return emit(stdout, stderr, envelope{SchemaVersion: 1, OK: true, Help: runHelp(flags)}, ExitOK)
+	}
 	var requestSet, curlSet bool
 	flags.Visit(func(f *flag.Flag) {
 		switch f.Name {
@@ -89,7 +82,7 @@ func Run(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, args []
 			curlSet = true
 		}
 	})
-	if parseErr != nil || flags.NArg() != 0 || requestSet == curlSet ||
+	if requestSet == curlSet ||
 		options.request == "" && options.curl == "" ||
 		options.inlineBytes < 0 || options.inlineBytes > core.MaxBody {
 		return respondFailure(inputFailure("INVALID_USAGE", "Invalid usage."))

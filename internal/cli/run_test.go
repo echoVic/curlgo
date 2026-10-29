@@ -58,7 +58,6 @@ func TestRunRejectsUsage(t *testing.T) {
 		{"--request", "", "--curl", "-"},
 		{"--request", "-", "--curl", ""},
 		{"--private_marker"},
-		{"--help"},
 		{"--request", "-", "--inline-body-bytes", "-1"},
 		{"--request", "-", "--inline-body-bytes", strconv.Itoa(core.MaxBody + 1)},
 		{"--request", "-", "--inline-body-bytes", "private_marker"},

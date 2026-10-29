@@ -16,10 +16,16 @@ import (
 )
 
 func main() {
+	ctx := context.Background()
+	var stop context.CancelFunc
 	if len(os.Args) > 1 && os.Args[1] == "run" {
-		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-		exit := cli.Run(ctx, os.Stdin, os.Stdout, os.Stderr, os.Args[2:])
+		ctx, stop = signal.NotifyContext(ctx, os.Interrupt)
+	}
+	exit, handled := cli.Dispatch(ctx, os.Stdin, os.Stdout, os.Stderr, os.Args[1:])
+	if stop != nil {
 		stop()
+	}
+	if handled {
 		os.Exit(int(exit))
 	}
 	preview := flag.String("render", "", "渲染原生界面至 PNG")

@@ -38,6 +38,7 @@ type mainCLIEnvelope struct {
 		Code    string `json:"code"`
 		Message string `json:"message"`
 	} `json:"error"`
+	Help json.RawMessage `json:"help"`
 }
 
 func TestMainCLIAcceptance(t *testing.T) {
@@ -86,6 +87,62 @@ func TestMainCLIAcceptance(t *testing.T) {
 		command.WaitDelay = time.Second
 		return command
 	}
+
+	t.Run("machineReadableHelp", func(t *testing.T) {
+		missing := filepath.Join(dir, "missing_private_marker")
+		for _, args := range [][]string{
+			{"help"}, {"help", "run"}, {"-h"}, {"--help"},
+			{"run", "-h"}, {"run", "--help"},
+			{"run", "--request", "-", "--curl", missing, "--ca-file", missing,
+				"--cookie-jar", missing, "--inline-body-bytes", "-1", "--help"},
+		} {
+			t.Run(strings.Join(args, " "), func(t *testing.T) {
+				child, stop := context.WithTimeout(ctx, 10*time.Second)
+				defer stop()
+				command := newCommand(child, args...)
+				command.Stdin = strings.NewReader("private_marker")
+				var stdout, stderr bytes.Buffer
+				command.Stdout, command.Stderr = &stdout, &stderr
+				if err := command.Run(); err != nil {
+					t.Fatalf("help process: %v, stdout=%q, stderr=%q", err, stdout.String(), stderr.String())
+				}
+				value := mainCLIDecode(t, stdout.String())
+				if !value.OK || value.Result != nil || value.Error != nil ||
+					len(value.Help) == 0 || stderr.Len() != 0 ||
+					strings.Contains(stdout.String(), "private_marker") {
+					t.Fatalf("help envelope=%+v, stderr=%q", value, stderr.String())
+				}
+			})
+		}
+	})
+
+	t.Run("helpUsageErrors", func(t *testing.T) {
+		for _, args := range [][]string{
+			{"help", "private_marker"}, {"help", "run", "private_marker"},
+			{"--help", "private_marker"}, {"-h", "run"},
+			{"run", "--help", "--private_marker"},
+			{"run", "--help", "--inline-body-bytes=private_marker"},
+		} {
+			t.Run(strings.Join(args, " "), func(t *testing.T) {
+				child, stop := context.WithTimeout(ctx, 10*time.Second)
+				defer stop()
+				command := newCommand(child, args...)
+				var stdout, stderr bytes.Buffer
+				command.Stdout, command.Stderr = &stdout, &stderr
+				err := command.Run()
+				var exit *exec.ExitError
+				if !errors.As(err, &exit) || exit.ExitCode() != 1 {
+					t.Fatalf("usage exit=%v, stdout=%q, stderr=%q", err, stdout.String(), stderr.String())
+				}
+				value := mainCLIDecode(t, stdout.String())
+				if value.OK || value.Result != nil || len(value.Help) != 0 || value.Error == nil ||
+					value.Error.Code != "INVALID_USAGE" || value.Error.Message != "Invalid usage." ||
+					stderr.Len() != 0 || strings.Contains(stdout.String(), "private_marker") {
+					t.Fatalf("usage envelope=%+v, stderr=%q", value, stderr.String())
+				}
+			})
+		}
+	})
 
 	t.Run("requestAndCurlFiles404", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

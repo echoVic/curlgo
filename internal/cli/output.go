@@ -21,6 +21,7 @@ type envelope struct {
 	OK            bool         `json:"ok"`
 	Result        *resultValue `json:"result,omitempty"`
 	Error         *errorValue  `json:"error,omitempty"`
+	Help          *helpValue   `json:"help,omitempty"`
 }
 
 type resultValue struct {
