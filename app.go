@@ -57,15 +57,23 @@ type application struct {
 	selectingFile                                                          string
 	pickUploadFile                                                         func(mygo.OpenDialogOptions) ([]string, error)
 	collectionImport                                                       *core.CollectionImport
+	collectionList                                                         ui.ListState
 	importingCollection                                                    bool
 	pickCollectionFile                                                     func(mygo.OpenDialogOptions) ([]string, error)
 	queryError                                                             error
+	groupFilter, editGroupID, groupName, groupParent                       string
+	groupList                                                              ui.ListState
+	exportOptions                                                          core.CollectionExportOptions
+	exportPreview                                                          collectionExportPreview
+	exportingCollection                                                    bool
+	pickExportFile                                                         func(mygo.SaveDialogOptions) (string, error)
 }
 
 func newApplication(w core.Workspace) *application {
 	a := &application{workspace: w, engine: core.NewEngine(), split: 240, status: "准备就绪", saveStatus: "所有内容仅保存在本机"}
 	a.pickUploadFile = mygo.Dialog.Open
 	a.pickCollectionFile = mygo.Dialog.Open
+	a.pickExportFile = mygo.Dialog.Save
 	a.engine.RestoreCookies(w.Cookies)
 	a.engine.OnCookiesChanged(func() {
 		a.post(func() { a.persist() })
@@ -89,6 +97,7 @@ func (a *application) post(fn func()) {
 	}
 }
 func cloneWorkspace(w core.Workspace) core.Workspace {
+	w.Groups = append([]core.RequestGroup(nil), w.Groups...)
 	w.Cookies = append([]core.SavedCookie(nil), w.Cookies...)
 	for i := range w.Cookies {
 		w.Cookies[i].Cookie.Unparsed = append([]string(nil), w.Cookies[i].Cookie.Unparsed...)
@@ -228,6 +237,7 @@ func (a *application) syncSettings() {
 }
 func (a *application) selectRequest(r core.Request) {
 	a.stop()
+	r.Headers = append([]core.Pair(nil), r.Headers...)
 	r.FormParts = append([]core.FormPart(nil), r.FormParts...)
 	r.QueryParams = append([]core.QueryParam(nil), r.QueryParams...)
 	a.workspace.Draft = r
@@ -240,12 +250,19 @@ func (a *application) selectRequest(r core.Request) {
 	a.notice = ""
 	a.persist()
 }
-func (a *application) newRequest() { a.selectRequest(core.NewRequest()) }
+func (a *application) newRequest() {
+	r := core.NewRequest()
+	if a.groupExists(a.groupFilter) {
+		r.GroupID = a.groupFilter
+	}
+	a.selectRequest(r)
+}
 func (a *application) saveRequest() {
 	if !a.validateDraft() {
 		return
 	}
 	r := a.workspace.Draft
+	r.Headers = append([]core.Pair(nil), r.Headers...)
 	r.FormParts = append([]core.FormPart(nil), r.FormParts...)
 	r.QueryParams = append([]core.QueryParam(nil), r.QueryParams...)
 	if strings.TrimSpace(r.Name) == "" {
@@ -259,6 +276,10 @@ func (a *application) saveRequest() {
 			a.persist()
 			return
 		}
+	}
+	if len(a.workspace.Requests) >= maxSavedRequests {
+		a.notice = "收藏最多 5000 个请求"
+		return
 	}
 	a.workspace.Requests = append(a.workspace.Requests, r)
 	a.toast = "请求已收藏"

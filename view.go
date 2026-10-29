@@ -71,6 +71,10 @@ func (a *application) view(c *ui.Context) {
 					a.importView(c)
 				} else if a.page == 3 && a.collectionImport != nil {
 					a.collectionView(c)
+				} else if a.page == 4 {
+					a.groupsView(c)
+				} else if a.page == 5 {
+					a.collectionExportView(c)
 				} else {
 					a.requestView(c)
 				}
@@ -95,18 +99,35 @@ func (a *application) view(c *ui.Context) {
 }
 func (a *application) sidebar(c *ui.Context) {
 	t := c.Theme()
+	paths := core.GroupPaths(a.workspace.Groups)
 	ui.Column(c).Width(230).Shrink(0).Padding(16, 12).Gap(12).Background(t.Surface).BorderWidth(0, 1, 0, 0).BorderColor(t.Border).Children(func() {
 		ui.PrimaryButton(c.Key("new"), "＋  新请求").FillWidth().Height(36).OnClick(a.newRequest)
 		ui.Button(c.Key("import"), "导入 curl / 集合").FillWidth().OnClick(func() { a.page = 2; a.notice = "" })
 		ui.SearchField(c.Key("search"), &a.search).Label("搜索请求")
 		ui.Segmented(c.Key("library"), &a.libraryTab, "收藏", "历史").FillWidth()
+		var selectedGroups map[string]bool
+		if a.libraryTab == 0 {
+			options := a.groupOptions("全部收藏")
+			options = append(options[:1], append([]groupOption{{ungroupedFilter, "未分组"}}, options[1:]...)...)
+			groupSelect(c.Key("group-filter"), &a.groupFilter, options, "筛选分组", nil).FillWidth()
+			ui.Row(c).Gap(6).Children(func() {
+				ui.Button(c.Key("manage-groups"), "管理分组").Grow(1).OnClick(a.openGroups)
+				ui.Button(c.Key("export-collection"), "导出集合").Grow(1).OnClick(a.openCollectionExport)
+			})
+			if a.groupFilter != "" && a.groupFilter != ungroupedFilter {
+				selectedGroups = core.GroupSubtree(a.workspace.Groups, a.groupFilter)
+			}
+		}
 		var rows []struct {
 			r    core.Request
 			time string
 		}
 		if a.libraryTab == 0 {
 			for _, r := range a.workspace.Requests {
-				if a.matches(r) {
+				if a.groupFilter == ungroupedFilter && paths[r.GroupID] != "" || selectedGroups != nil && !selectedGroups[r.GroupID] {
+					continue
+				}
+				if a.matches(r, paths[r.GroupID]) {
 					rows = append(rows, struct {
 						r    core.Request
 						time string
@@ -115,7 +136,7 @@ func (a *application) sidebar(c *ui.Context) {
 			}
 		} else {
 			for _, h := range a.workspace.History {
-				if a.matches(h.Request) {
+				if a.matches(h.Request, paths[h.Request.GroupID]) {
 					rows = append(rows, struct {
 						r    core.Request
 						time string
@@ -167,8 +188,11 @@ func (a *application) sidebar(c *ui.Context) {
 		ui.Text(c, "不登录 · 不上传 · 随时离开").TextColor(t.TextMuted).FontSize(10)
 	})
 }
-func (a *application) matches(r core.Request) bool {
-	return strings.Contains(strings.ToLower(r.Name+" "+r.URL), strings.ToLower(a.search))
+func (a *application) matches(r core.Request, path string) bool {
+	if a.search == "" {
+		return true
+	}
+	return strings.Contains(strings.ToLower(r.Name+" "+r.URL+" "+path), strings.ToLower(a.search))
 }
 func short(s string, n int) string {
 	r := []rune(s)
@@ -208,6 +232,13 @@ func (a *application) requestView(c *ui.Context) {
 		ui.Select(c.Key("environment"), &a.workspace.Settings.Environment, envs).Width(160).Label("当前环境").Disabled(a.busy).OnChange(a.persist)
 		ui.Spacer(c)
 		ui.Text(c, "{{name}} 引用环境变量").FontSize(11).TextColor(t.TextMuted)
+	})
+	ui.Row(c).Gap(10).Children(func() {
+		ui.Text(c, "分组").TextColor(t.TextMuted)
+		groupSelect(c.Key("request-group"), &r.GroupID, a.groupOptions("未分组"), "所属分组", a.moveDraftGroup).
+			Grow(1).Disabled(a.busy)
+		ui.Button(c.Key("duplicate-request"), "复制收藏").Disabled(a.busy || !a.savedDraft()).
+			OnClick(func() { a.copySavedRequest(a.workspace.Draft.ID) })
 	})
 	ui.Row(c).Padding(6).Gap(8).Radius(12).Background(t.Surface).BorderWidth(1).BorderColor(t.Border).Children(func() {
 		ui.Select(c.Key("method"), &r.Method, []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}).Width(100).Label("请求方法").Disabled(a.busy || r.Protocol == "WebSocket").OnChange(a.persist)
@@ -367,10 +398,10 @@ func (a *application) importView(c *ui.Context) {
 		ui.Text(c, "不执行脚本，不读取 @file").FontSize(11).TextColor(t.TextMuted)
 	})
 	ui.Divider(c)
+	ui.Text(c, "导入集合 · 先预览再加入收藏").Bold()
 	ui.Row(c).Gap(12).Children(func() {
-		ui.Text(c, "从其他工具迁移").Bold()
+		ui.Button(c.Key("import-curlgo"), "导入 CurlGo 集合").Disabled(a.importingCollection).OnClick(func() { a.chooseCollection(collectionCurlGo) })
 		ui.Button(c.Key("import-postman"), "导入 Postman 集合").Disabled(a.importingCollection).OnClick(func() { a.chooseCollection(collectionPostman) })
 		ui.Button(c.Key("import-bruno"), "导入 Bruno 集合").Disabled(a.importingCollection).OnClick(func() { a.chooseCollection(collectionBruno) })
-		ui.Text(c, "先预览再加入收藏 · 不执行脚本").FontSize(11).TextColor(t.TextMuted)
 	})
 }
