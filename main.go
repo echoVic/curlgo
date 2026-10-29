@@ -76,6 +76,7 @@ func main() {
 		a := newApplication(w)
 		a.store = store
 		a.readOnly = readOnly
+		a.attachSecrets()
 		if loadErr != nil {
 			a.notice = loadErr.Error()
 			if readOnly {
@@ -93,7 +94,14 @@ func main() {
 		})
 		a.startSaving()
 		a.win.OnClose(a.closeWindow)
-		a.win.OnClosed(func() { a.closed = true; a.stop(); close(a.saves); a.engine.Close(); mygo.App.Quit() })
+		a.win.OnClosed(func() {
+			a.closed = true
+			a.lockSecrets()
+			a.stop()
+			close(a.saves)
+			a.engine.Close()
+			mygo.App.Quit()
+		})
 	})
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)

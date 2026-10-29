@@ -11,6 +11,10 @@ import (
 )
 
 func (a *application) view(c *ui.Context) {
+	if a.page != 6 && a.secretPageActive {
+		a.leaveSecretPage()
+	}
+	a.secretPageActive = a.page == 6
 	t := ui.LightTheme()
 	if a.workspace.Settings.Theme == "深色" {
 		t = ui.DarkTheme()
@@ -75,6 +79,8 @@ func (a *application) view(c *ui.Context) {
 					a.groupsView(c)
 				} else if a.page == 5 {
 					a.collectionExportView(c)
+				} else if a.page == 6 {
+					a.secretsView(c)
 				} else {
 					a.requestView(c)
 				}
@@ -184,6 +190,7 @@ func (a *application) sidebar(c *ui.Context) {
 			ui.Button(c.Key("clear-history"), "清空历史").OnClick(func() { a.workspace.History = nil; a.persist() })
 		}
 		ui.Divider(c)
+		ui.Button(c.Key("secrets"), "机密变量").FillWidth().OnClick(func() { a.page = 6; a.notice = "" })
 		ui.Button(c.Key("settings"), "环境与全局请求头").FillWidth().OnClick(func() { a.syncSettings(); a.page = 1; a.notice = "" })
 		ui.Text(c, "不登录 · 不上传 · 随时离开").TextColor(t.TextMuted).FontSize(10)
 	})
@@ -218,7 +225,7 @@ func (a *application) requestView(c *ui.Context) {
 				return
 			}
 			services.WriteClipboard(cmd)
-			a.toast = "curl 已复制（包含当前环境的实际值）"
+			a.toast = "curl 已复制（普通变量已替换，机密变量保留引用）"
 		})
 	})
 	ui.Row(c).Gap(10).Children(func() {
@@ -274,7 +281,8 @@ func (a *application) requestView(c *ui.Context) {
 			case 1:
 				a.bodyView(c)
 			case 2:
-				raw, err := core.Expand(r.URL, a.workspace.Settings.Environments[a.workspace.Settings.Environment])
+				resolved, err := core.ResolveWithSecrets(*r, a.workspace.Settings, a.secretValues(a.workspace.Settings.Environment))
+				raw := resolved.URL
 				if err != nil {
 					raw = ""
 				}
@@ -393,7 +401,7 @@ func (a *application) settingsView(c *ui.Context) {
 	}).Grow(1).MinHeight(0)
 	ui.Row(c).Gap(12).Children(func() {
 		ui.PrimaryButton(c.Key("apply"), "保存配置").OnClick(a.applySettings)
-		ui.Text(c, "环境值以明文存储，分享文件前请检查凭证。").TextColor(t.TextMuted).FontSize(11)
+		ui.Text(c, "普通环境值以明文保存；凭证请放入「机密变量」。").TextColor(t.TextMuted).FontSize(11)
 	})
 }
 func (a *application) importView(c *ui.Context) {

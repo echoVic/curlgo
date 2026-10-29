@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/echoVic/curlgo/internal/core"
+	"github.com/echoVic/curlgo/internal/vault"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
@@ -73,6 +74,12 @@ type application struct {
 	extractionNotice                                                       string
 	assertionReport                                                        *core.AssertionReport
 	assertionNotice                                                        string
+	secrets                                                                *vault.Vault
+	secretName, secretValue, secretNotice                                  string
+	showSecret, secretBusy, secretPageActive                               bool
+	secretGeneration                                                       uint64
+	secretEditorGeneration                                                 uint64
+	secretCancel                                                           context.CancelFunc
 }
 
 func newApplication(w core.Workspace) *application {
@@ -211,6 +218,7 @@ func (a *application) persist() {
 	}
 }
 func (a *application) closeWindow(e *mygo.CloseEvent) {
+	a.lockSecrets()
 	if a.saveReady || a.readOnly {
 		return
 	}
@@ -259,6 +267,7 @@ func (a *application) syncSettings() {
 	a.variables = string(b)
 }
 func (a *application) selectRequest(r core.Request) {
+	a.leaveSecretPage()
 	a.stop()
 	r.Headers = append([]core.Pair(nil), r.Headers...)
 	r.FormParts = append([]core.FormPart(nil), r.FormParts...)
@@ -347,6 +356,10 @@ func (a *application) applySettings() {
 	}
 	vars := make(map[string]string, len(raw))
 	for k, v := range raw {
+		if strings.HasPrefix(k, core.SecretPrefix) {
+			a.notice = "secret. 为机密变量保留前缀，请在「机密变量」中配置"
+			return
+		}
 		var text string
 		if len(v) == 0 || v[0] != '"' || json.Unmarshal(v, &text) != nil {
 			a.notice = "环境变量应为 JSON 对象，值均为字符串"
@@ -490,7 +503,8 @@ func (a *application) send() {
 	if !a.validateDraft() {
 		return
 	}
-	r, err := core.Resolve(a.workspace.Draft, a.workspace.Settings)
+	privateRequest := core.RequestUsesSecrets(a.workspace.Draft, a.workspace.Settings)
+	r, err := core.ResolveWithSecrets(a.workspace.Draft, a.workspace.Settings, a.secretValues(a.workspace.Settings.Environment))
 	if err != nil {
 		a.notice = err.Error()
 		return
@@ -547,7 +561,11 @@ func (a *application) send() {
 			runErr = engine.Run(ctx, r, emit)
 		}
 		if runErr != nil && ctx.Err() == nil {
-			emit(core.Event{Kind: "error", Text: runErr.Error()})
+			text := runErr.Error()
+			if privateRequest {
+				text = "请求传输失败，请检查连接、证书和超时设置"
+			}
+			emit(core.Event{Kind: "error", Text: text})
 		}
 		close(events)
 	}()

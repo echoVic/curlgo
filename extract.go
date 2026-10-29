@@ -55,11 +55,31 @@ func (a *application) applyExtractedVariables(rules []core.ResponseExtractor, en
 		a.notice = a.extractionNotice
 		return
 	}
+	private, ordinary := map[string]string{}, map[string]string{}
+	for name, value := range values {
+		if strings.HasPrefix(name, core.SecretPrefix) {
+			private[strings.TrimPrefix(name, core.SecretPrefix)] = value
+		} else {
+			ordinary[name] = value
+		}
+	}
+	if len(private) > 0 {
+		if a.secrets == nil || !a.secrets.Unlocked() {
+			a.extractionNotice = "提取失败：请先解锁机密变量"
+			a.notice = a.extractionNotice
+			return
+		}
+		if err := a.secrets.SetBatch(environment, private); err != nil {
+			a.extractionNotice = "提取失败：机密变量未保存，环境变量未更新"
+			a.notice = a.extractionNotice
+			return
+		}
+	}
 	merged := make(map[string]string, len(old)+len(values))
 	for k, v := range old {
 		merged[k] = v
 	}
-	for k, v := range values {
+	for k, v := range ordinary {
 		merged[k] = v
 	}
 	a.workspace.Settings.Environments[environment] = merged
@@ -98,7 +118,7 @@ func (a *application) removeExtractor(id string) {
 
 func (a *application) extractionView(c *ui.Context) {
 	t := c.Theme()
-	ui.Text(c, "HTTP 2xx 且断言通过后写入发送时的环境 · 全部提取规则成功才更新").FontSize(11).TextColor(t.TextMuted)
+	ui.Text(c, "HTTP 2xx 且断言通过后写入发送时的环境 · secret.token 写入机密变量").FontSize(11).TextColor(t.TextMuted)
 	ui.Scroll(c.Key("extraction-rules")).Grow(1).MinHeight(0).Children(func() {
 		ui.Column(c).FillWidth().Gap(8).Disabled(a.busy).Children(func() {
 			if len(a.workspace.Draft.Extractors) == 0 {
@@ -115,7 +135,7 @@ func (a *application) extractionView(c *ui.Context) {
 							a.persist()
 						})
 						ui.TextInput(c.Key("variable"), &r.Variable).Grow(1).MinWidth(100).
-							Label("目标变量 " + number).Placeholder("变量名，如 token").OnChange(a.persist)
+							Label("目标变量 " + number).Placeholder("变量名，如 id 或 secret.token").OnChange(a.persist)
 						source := "JSON 正文"
 						if r.Source == core.ExtractHeader {
 							source = "响应头"
