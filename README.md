@@ -17,11 +17,28 @@
 
 ## Agent 与 CLI
 
-`curlgo run` 不启动 GUI，每次执行一个 HTTP / HTTPS 请求，向 stdout 输出一个 `schemaVersion: 1` JSON 文档。先用 `command -v curlgo` 检查可执行文件；不存在时在仓库根目录构建同一应用，以下命令的 `curlgo` 均替换为 `/tmp/curlgo-api-test`：
+CLI 帮助、预检与 `curlgo run` 不启动 GUI，向 stdout 输出一个 `schemaVersion: 1` JSON 文档；普通 `run` 每次执行一个 HTTP / HTTPS 请求。先用 `command -v curlgo` 检查可执行文件；不存在时在仓库根目录构建同一应用，以下命令的 `curlgo` 均替换为 `/tmp/curlgo-api-test`，不要切换到第二个 HTTP 客户端：
 
 ```sh
 CGO_ENABLED=0 go build -o /tmp/curlgo-api-test .
 ```
+
+### JSON 帮助
+
+根命令与 `run` 帮助均使用 schema v1 JSON，不是请求结果，也不需要请求输入：
+
+```sh
+curlgo help
+curlgo help run
+curlgo -h
+curlgo --help
+curlgo run --help
+curlgo run -h
+```
+
+成功时返回 `schemaVersion: 1`、`ok: true` 与 `help`，没有 `result`；`help` 提供 `usage`、`options`、`protocols`、`urlSchemes`、`authentication`、`limits` 与 `exitCodes`。帮助不发送请求或读取请求、CA、Cookie 输入。无参数的 `curlgo` 仍启动 GUI，不是帮助命令。
+
+### 请求输入
 
 本地服务已在 8080 端口运行时，`request.json` 最小示例：
 
@@ -46,11 +63,100 @@ curlgo run --curl imported.curl
 curlgo run --curl - <imported.curl
 ```
 
-输入与输出均使用 schema v1。JSON 缺省为 GET / HTTP、30 秒超时、跟随重定向；显式 `false` 保留，超时 0 拒绝。curl 未指定 `-L` 时不跟随重定向。退出码 0 / `ok: true` 表示响应捕获、已配置的提取及输出成功，不代表业务成功，HTTP 401 / 404 / 500 也可退出 0；须检查 `result.statusCode` 与正文。退出码 1 为输入或配置错误，2 为传输、取消、超时、正文读取或响应提取失败，3 为输出或 Cookie 保存失败。
+输入与输出均使用 schema v1。JSON 缺省为 GET / HTTP、30 秒超时、跟随重定向；显式 `false` 保留，超时 0 拒绝。curl 未指定 `-L` 时不跟随重定向。
+
+### 离线预检
+
+在发送前用相同输入与配置加上 `--dry-run`：
+
+```sh
+curlgo run --request request.json --dry-run
+curlgo run --request - --dry-run <request.json
+curlgo run --curl imported.curl --dry-run
+curlgo run --curl - --dry-run <imported.curl
+```
+
+预检解析输入、展开变量并校验请求与鉴权、CA、Cookie、代理配置；可读取本地输入、CA 与已有 Cookie 文件，multipart 准备会检查普通文件、打开并关闭文件，但不读取文件内容、不上传。不执行 HTTP、DNS、TLS 握手或代理连接，不创建响应正文文件、目录或 Cookie 文件，不保存或更新状态、不运行响应变量提取，也没有 `result`、响应正文或 `timing`。成功只表示本地准备通过，不代表目标可达、TLS 证书链可信、登录或业务成功。
+
+最小 GET 示例的预检输出包含八个 `validation` 字段；`bodyMode: ""` 表示原始正文模式，计数是准备后的请求头与表单项数，不是响应信息：
+
+```json
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "validation": {
+    "dryRun": true,
+    "method": "GET",
+    "protocol": "HTTP",
+    "bodyMode": "",
+    "headerCount": 0,
+    "formPartCount": 0,
+    "timeoutSeconds": 30,
+    "followRedirects": true
+  }
+}
+```
+
+显式 `--out-dir` 与 `--cookie-jar` 的父目录（即使 jar 不存在）必须已存在且为目录。预检只检查存在与目录类型，不检查写权限或剩余空间，不执行 mkdir 或保存；该路径检查失败为 `OUTPUT_ERROR` / 退出 3。普通执行仍可能在写文件或保存 Cookie 时失败。
+
+### 成功与诊断
+
+| 模式 | 退出码 0 / `ok: true` 的含义 |
+|---|---|
+| 帮助 | 帮助 JSON 输出成功，不是 API 检查 |
+| `--dry-run` | 本地准备与预检 JSON 输出成功，没有发送请求 |
+| 普通 `run` | 响应捕获、已配置的提取及输出成功，不代表业务成功；HTTP 401 / 404 / 500 也可退出 0，须检查 `result.statusCode` 与正文 |
+
+机器分类使用稳定的退出码与 `error.code`，不要匹配 `error.message`；消息只提供安全提示，不回显原始凭证、输入或底层错误。退出码 1 为用法、输入、配置或请求构造错误（`INVALID_USAGE`、`INVALID_INPUT`、`INVALID_CURL`、`UNRESOLVED_VARIABLE`、`INVALID_REQUEST`、`REQUEST_BUILD_ERROR`）；2 为执行或提取失败（`CONNECT_ERROR`、`REDIRECT_ERROR`、`TLS_ERROR`、`TIMEOUT`、`CANCELED`、`BODY_READ_ERROR`、`EXTRACTION_ERROR`）；3 为输出路径、正文输出或 Cookie 保存失败（`OUTPUT_ERROR`）。stdout 本身写入失败也退出 3，此时 JSON 可能不完整，stderr 使用固定提示 `CurlGo: 无法写入结果 JSON`。
+
+### 普通执行输出
 
 小文本原样放在 `result.body.text`；二进制或超过默认 262144 字节内联阈值的正文保存到 `body.path`，须读取该文件。`--inline-body-bytes` 范围 0–4194304，0 让所有非空正文写文件；捕获最多 4 MiB，`truncated` 为真时不能声称响应完整或直接解析不完整 JSON。文件 0600，默认临时目录 0700，保留供调用方读取与清理；`--out-dir` 须为已有目录，不应删除用户目录或无关文件。`timing` 为毫秒，DNS / 连接 / TLS 累计已完成阶段，TTFB 从执行开始到最后响应首字节，total 到捕获结束；阶段可重叠，不可相加，正文 bytes 为自动解压后的应用字节而非网络流量。
 
 CLI 不加载 GUI 工作区。变量来自 JSON `settings.environments` / `environment`，而非 OS 环境；CA、Cookie、代理分别通过 `--ca-file`、`--cookie-jar`、`--proxy` 显式提供，不读取 `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`。凭证使用 0600 私有文件或 stdin，不放命令行参数；curl 只解析文本，不执行 shell 或隐式 `@file` 读取。响应头、正文和 URL 仍可能含秘密。安全输入、授权 multipart、串行登录链、错误与清理规则见项目技能 [api-test](.trae/skills/api-test/SKILL.md)；v1 不含断言 DSL、集合运行器或无界面 SSE / WebSocket。
+
+### 结构化鉴权
+
+在 JSON `request.auth` 中选择一种模式；省略 `auth` 或 `mode` 时使用手工请求头，不生成鉴权。下表各对象用于替换 `request.auth`，不是 CLI 凭证参数：
+
+| 模式 | `request.auth` JSON |
+|---|---|
+| Bearer | `{"mode":"bearer","token":"{{token}}"}` |
+| Basic | `{"mode":"basic","username":"{{username}}","password":"{{password}}"}` |
+| API Key Header | `{"mode":"apikey","location":"header","key":"{{api_key_name}}","value":"{{api_key}}"}` |
+| API Key Query | `{"mode":"apikey","location":"query","key":"api_key","value":"{{api_key}}"}` |
+
+API Key 省略 `location` 时默认 Header。鉴权变量同样从所选 JSON 环境展开；Bearer / Basic 生成 `Authorization`，Header API Key 生成指定请求头，均覆盖手工与全局配置中的同名 Header（大小写不敏感）。Query API Key 替换 URL 中同名参数，重复同名项合为一个，其他参数保留。预检校验鉴权设置及变量，但不会验证凭证是否被服务器接受。
+
+以下完整示例只含文档演示值，不是真实凭证；三个模式所需变量都放在所选环境中。真实值应经结构化序列化写入 0700 私有目录中的 0600 输入文件或通过 stdin 提供，不使用 CLI 凭证参数：
+
+```json
+{
+  "schemaVersion": 1,
+  "request": {
+    "method": "GET",
+    "url": "{{base_url}}/health",
+    "followRedirects": true,
+    "timeoutSeconds": 30,
+    "auth": {"mode": "bearer", "token": "{{token}}"}
+  },
+  "settings": {
+    "environment": "local",
+    "environments": {
+      "local": {
+        "base_url": "http://127.0.0.1:8080",
+        "token": "documentation-only-token",
+        "username": "documentation-user",
+        "password": "documentation-only-password",
+        "api_key_name": "X-API-Key",
+        "api_key": "documentation-only-key"
+      }
+    }
+  }
+}
+```
+
+将该输入作为 `auth-request.json` 时，先运行 `curlgo run --request auth-request.json --dry-run`；确认目标与请求获授权后，再去掉 `--dry-run` 发送。Query 凭证会出现在实际 URL 中，普通执行的 `result.url` 仍需私密捕获与脱敏。
 
 ## 操作
 

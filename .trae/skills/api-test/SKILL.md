@@ -36,6 +36,21 @@ Stop on a build failure. In every command below, replace only the executable `cu
 
 Use input `schemaVersion: 1` and require output `schemaVersion: 1`. Stop on missing or unknown versions instead of guessing a compatible shape. Curl text has no envelope version; it is imported into the same v1 execution path.
 
+## Inspect Help
+
+Use root or run help to discover the current options without supplying request input:
+
+```sh
+curlgo help
+curlgo help run
+curlgo -h
+curlgo --help
+curlgo run --help
+curlgo run -h
+```
+
+Expect a schema-v1 JSON envelope with `schemaVersion: 1`, `ok: true`, and `help`, not `result`. Read `help.usage`, `options`, `protocols`, `urlSchemes`, `authentication`, `limits`, and `exitCodes`; do not interpret help as an API response. Help sends no request and reads no request, CA, or Cookie inputs. Bare `curlgo` still launches the GUI, so do not use it for help.
+
 ## Prepare And Run
 
 For complex requests and credentials, use a structured JSON serializer and a private input file or stdin. Create owned temporary directories with mode 0700 and files with mode 0600 before writing sensitive contents. Do not put tokens in CLI arguments, echo credentials, enable shell tracing, or paste complete inputs into reports. Track only this invocation's owned temporary paths for later cleanup.
@@ -90,9 +105,88 @@ Use `settings.environments` and `settings.environment` for `{{name}}` expansion 
 }
 ```
 
+## Structured Authentication
+
+Select one mode in JSON `request.auth`. These objects replace only `request.auth`, not the full input envelope:
+
+| Mode | `request.auth` JSON |
+|---|---|
+| Bearer | `{"mode":"bearer","token":"{{token}}"}` |
+| Basic | `{"mode":"basic","username":"{{username}}","password":"{{password}}"}` |
+| API Key Header | `{"mode":"apikey","location":"header","key":"{{api_key_name}}","value":"{{api_key}}"}` |
+| API Key Query | `{"mode":"apikey","location":"query","key":"api_key","value":"{{api_key}}"}` |
+
+Omit `auth` or its `mode` to retain manual headers without generated authentication. For `apikey`, omitted `location` defaults to `header`. Expand credential values and API Key names from the selected `settings.environments` entry through `settings.environment`, not OS environment variables. Bearer and Basic generate `Authorization`; a header API Key generates its named header. Generated auth headers override all same-name manual request and global headers case-insensitively. A query API Key replaces same-name URL parameters with one value and retains unrelated parameters.
+
+Use this full structured example with documentation-only values, never real credentials in a report. It provides variables for all three modes; replace only `request.auth` to use a table alternative:
+
+```json
+{
+  "schemaVersion": 1,
+  "request": {
+    "method": "GET",
+    "url": "{{base_url}}/health",
+    "followRedirects": true,
+    "timeoutSeconds": 30,
+    "auth": {"mode": "bearer", "token": "{{token}}"}
+  },
+  "settings": {
+    "environment": "local",
+    "environments": {
+      "local": {
+        "base_url": "http://127.0.0.1:8080",
+        "token": "documentation-only-token",
+        "username": "documentation-user",
+        "password": "documentation-only-password",
+        "api_key_name": "X-API-Key",
+        "api_key": "documentation-only-key"
+      }
+    }
+  }
+}
+```
+
+Supply real values only through a mode-0600 private input in an owned mode-0700 directory or stdin. Do not use CLI credential flags. For `auth-request.json`, preflight with `curlgo run --request auth-request.json --dry-run`; remove `--dry-run` only for an authorized transmission. Query credentials appear in the actual URL and can remain in normal `result.url`; capture it privately and redact it.
+
+## Validate Without Sending
+
+Add `--dry-run` to the chosen request or curl input and the same explicit configuration flags intended for execution:
+
+```sh
+curlgo run --request request.json --dry-run
+curlgo run --request - --dry-run <request.json
+curlgo run --curl imported.curl --dry-run
+curlgo run --curl - --dry-run <imported.curl
+```
+
+Expect only local preparation. Dry-run parses input, resolves variables, and validates request and auth settings, CA certificates, Cookie snapshots, and proxy configuration. It can read local input, CA, and existing Cookie files. Multipart preparation checks regular files, opens and closes them, and prepares framing without reading upload-file contents or uploading.
+
+It performs no HTTP, DNS, TLS handshake, or proxy connection. It writes no state, creates no directories, Cookie snapshots, or response body files, and runs no response extraction. It emits JSON on stdout without `result`, response body, or `timing`. Do not claim reachability, TLS chain trust, login, or business success from a successful preflight.
+
+For the minimal GET input above, expect this eight-field `validation` object. `bodyMode: ""` is raw-body mode; counts describe prepared headers and form parts, not a response:
+
+```json
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "validation": {
+    "dryRun": true,
+    "method": "GET",
+    "protocol": "HTTP",
+    "bodyMode": "",
+    "headerCount": 0,
+    "formPartCount": 0,
+    "timeoutSeconds": 30,
+    "followRedirects": true
+  }
+}
+```
+
+When `--out-dir` is supplied, require its value to name an existing directory. When `--cookie-jar` is supplied, require its parent to be an existing directory, including when the jar itself is missing. Dry-run checks only existence and directory type, not write permissions or free space; it does not mkdir or save. This path check fails with `OUTPUT_ERROR` and exit 3. Normal execution can still fail during output or Cookie saving after preflight succeeds.
+
 ## Explicit CA, Cookies, And Proxy
 
-Use only flags required by the authorized request. This example shows all explicit configuration flags; the paths are illustrative and must be replaced with approved paths. The CA file must exist, the Cookie file's parent must already exist, and `--out-dir` must already be a writable directory:
+Use only flags required by the authorized request. This example shows all explicit configuration flags; the paths are illustrative and must be replaced with approved paths. The CA file must exist; the Cookie file's parent and `--out-dir` must already exist as directories. A successful dry-run does not guarantee that either directory permits writes or has enough free space:
 
 ```sh
 curlgo run --request request.json \
@@ -116,7 +210,7 @@ curlgo run --request login.json --cookie-jar /absolute/private/cookies.json
 curlgo run --request verify.json --cookie-jar /absolute/private/cookies.json
 ```
 
-The jar is saved after execution even when execution fails, including partial body reads. A Cookie save failure yields `OUTPUT_ERROR` and exit 3, so do not assume the next call has updated login state. Keep user-owned jars unless their removal was authorized.
+On a normal run, the jar is saved after execution even when execution fails, including partial body reads; dry-run never saves it or creates a missing jar. A Cookie save failure yields `OUTPUT_ERROR` and exit 3, so do not assume the next call has updated login state. Keep user-owned jars unless their removal was authorized.
 
 ## Response Variables
 
@@ -149,16 +243,32 @@ Do not execute this upload example without explicit authorization for both the e
 
 ## Interpret Output
 
-Capture stdout privately and record the process exit status. Normally stdout is one JSON document with `schemaVersion`, `ok`, and optional `result` / `error`. Validate the envelope before inspecting fields.
+Capture stdout privately and record the process exit status. Normally stdout is one JSON document with `schemaVersion`, `ok`, and optional `help`, `validation`, `result`, or `error`. Validate the envelope and distinguish the mode before inspecting fields:
+
+| Mode | Meaning of exit 0 / `ok: true` |
+|---|---|
+| Help | Help JSON was emitted successfully; no API check occurred |
+| Dry-run | Local preparation and validation JSON output succeeded; no request was sent |
+| Normal run | Response capture, configured extraction when applicable, and output succeeded; not a business success or a 2xx guarantee |
+
+Use stable `error.code` values and the exit status for machine classification, never match `error.message`. Messages provide safe hints and do not echo raw input, credentials, or underlying error text. Codes remain the contract even when hint wording changes:
+
+| Exit | Stable diagnostic codes |
+|---|---|
+| 1 | `INVALID_USAGE`, `INVALID_INPUT`, `INVALID_CURL`, `UNRESOLVED_VARIABLE`, `INVALID_REQUEST`, `REQUEST_BUILD_ERROR` |
+| 2 | `CONNECT_ERROR`, `REDIRECT_ERROR`, `TLS_ERROR`, `TIMEOUT`, `CANCELED`, `BODY_READ_ERROR`, `EXTRACTION_ERROR` |
+| 3 | `OUTPUT_ERROR` when an error envelope can be emitted |
+
+For normal request execution, apply these actions:
 
 | Exit | Meaning | Required action |
 |---|---|---|
-| 0 | A response was captured and output saved successfully | Inspect `result.statusCode` and the expected business fields; HTTP 401, 404, and 500 can all exit 0 |
+| 0 | Response capture, configured extraction when applicable, and output succeeded | Inspect `result.statusCode` and the expected business fields; HTTP 401, 404, and 500 can all exit 0 |
 | 1 | Usage, input, configuration, or request construction failed | Fix the authorized input; do not report a completed API check |
 | 2 | Transmission, redirect, TLS, cancellation, timeout, body-read, or configured extraction failure | Inspect `error.code` and any partial result; distinguish failure from HTTP status |
 | 3 | Output body, Cookie snapshot, or stdout write failed | Treat output/state persistence as failed even if response metadata exists |
 
-`ok: true` means successful response capture, configured extraction when applicable, and output, not a business success or a 2xx guarantee. Check both HTTP status and the authorized business assertion. `BODY_READ_ERROR` can retain response metadata and partial body bytes; do not treat those bytes as a complete response. `OUTPUT_ERROR` can retain partial metadata and includes a prior primary error code in its message when one exists.
+For normal runs, check both HTTP status and the authorized business assertion. `BODY_READ_ERROR` can retain response metadata and partial body bytes; do not treat those bytes as a complete response. `OUTPUT_ERROR` can retain partial metadata and includes a prior primary error code in its message when one exists; this remains a human hint, not a separate machine-classification field.
 
 If stdout itself cannot be written, exit is 3 and stderr uses the fixed message `CurlGo: 无法写入结果 JSON`. Stdout may contain incomplete JSON; do not attempt to salvage it as a valid envelope or expect a second JSON error document.
 
@@ -181,6 +291,6 @@ Read `result.timing` as milliseconds:
 
 ## Report And Boundaries
 
-Report only the sanitized interface or endpoint, HTTP status, selected authorized business fields, and input path. State truncation, partial results, and persistence failures explicitly. Redact secret-bearing URLs and paths; do not paste tokens, Cookie values, full request headers, response bodies, or `Set-Cookie` into reports. Cleanup applies only to owned temporary inputs, captured output, and disposable jars.
+Report the mode first. For help, report only discovered capabilities; for dry-run, report only local validation and never invent HTTP status or timings. For normal runs, report only the sanitized interface or endpoint, HTTP status, selected authorized business fields, and input path. State truncation, partial results, and persistence failures explicitly. Redact secret-bearing URLs and paths; do not paste tokens, Cookie values, full request headers, response bodies, or `Set-Cookie` into reports. Cleanup applies only to owned temporary inputs, captured output, and disposable jars.
 
 V1 executes one HTTP/HTTPS request per call. It is not an assertion DSL, collection runner, headless SSE/WebSocket client, or GUI replay mechanism. Stop when a task requires these unsupported modes instead of treating GUI collection import/export or stream features as CLI support.
