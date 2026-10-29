@@ -73,13 +73,15 @@ func Run(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, args []
 	if options.help {
 		return emit(stdout, stderr, envelope{SchemaVersion: 1, OK: true, Help: runHelp(flags)}, ExitOK)
 	}
-	var requestSet, curlSet bool
+	var requestSet, curlSet, outDirSet bool
 	flags.Visit(func(f *flag.Flag) {
 		switch f.Name {
 		case "request":
 			requestSet = true
 		case "curl":
 			curlSet = true
+		case "out-dir":
+			outDirSet = true
 		}
 	})
 	if requestSet == curlSet ||
@@ -104,11 +106,26 @@ func Run(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, args []
 	if fail := configureEngine(engine, input.Settings, options); fail != nil {
 		return respondFailure(fail)
 	}
+	if options.dryRun {
+		if fail := validateOutputPaths(options, outDirSet); fail != nil {
+			return respondFailure(fail)
+		}
+	}
+	var cookies []core.SavedCookie
 	if options.cookieJar != "" {
-		cookies, err := core.LoadCookieFile(options.cookieJar)
+		cookies, err = core.LoadCookieFile(options.cookieJar)
 		if err != nil {
 			return respondFailure(inputFailure("INVALID_INPUT", "Invalid input."))
 		}
+	}
+	if options.dryRun {
+		validation, fail := validateRequest(ctx, input.Request)
+		if fail != nil {
+			return respondFailure(fail)
+		}
+		return emit(stdout, stderr, envelope{SchemaVersion: 1, OK: true, Validation: validation}, ExitOK)
+	}
+	if options.cookieJar != "" {
 		engine.RestoreCookies(cookies)
 	}
 	result, executionErr := engine.DoHTTP(ctx, input.Request, core.HTTPOptions{})

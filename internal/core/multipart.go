@@ -24,6 +24,15 @@ func (b *multipartBody) Close() error {
 	return err
 }
 
+// ValidateMultipartFiles prepares and closes uploads without reading file contents.
+func ValidateMultipartFiles(parts []FormPart) error {
+	body, _, err := openMultipart(parts, "curlgo-validation")
+	if err != nil {
+		return err
+	}
+	return body.Close()
+}
+
 // Files remain readers rather than byte slices. Only multipart framing and text
 // fields are buffered, so upload memory does not grow with file size.
 func openMultipart(parts []FormPart, boundary string) (body *multipartBody, size int64, err error) {

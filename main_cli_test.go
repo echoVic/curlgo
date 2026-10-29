@@ -17,6 +17,7 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -38,7 +39,8 @@ type mainCLIEnvelope struct {
 		Code    string `json:"code"`
 		Message string `json:"message"`
 	} `json:"error"`
-	Help json.RawMessage `json:"help"`
+	Help       json.RawMessage `json:"help"`
+	Validation json.RawMessage `json:"validation"`
 }
 
 func TestMainCLIAcceptance(t *testing.T) {
@@ -93,6 +95,7 @@ func TestMainCLIAcceptance(t *testing.T) {
 		for _, args := range [][]string{
 			{"help"}, {"help", "run"}, {"-h"}, {"--help"},
 			{"run", "-h"}, {"run", "--help"},
+			{"run", "--dry-run", "--request", missing, "--out-dir=", "--help"},
 			{"run", "--request", "-", "--curl", missing, "--ca-file", missing,
 				"--cookie-jar", missing, "--inline-body-bytes", "-1", "--help"},
 		} {
@@ -108,7 +111,7 @@ func TestMainCLIAcceptance(t *testing.T) {
 				}
 				value := mainCLIDecode(t, stdout.String())
 				if !value.OK || value.Result != nil || value.Error != nil ||
-					len(value.Help) == 0 || stderr.Len() != 0 ||
+					len(value.Help) == 0 || len(value.Validation) != 0 || stderr.Len() != 0 ||
 					strings.Contains(stdout.String(), "private_marker") {
 					t.Fatalf("help envelope=%+v, stderr=%q", value, stderr.String())
 				}
@@ -122,6 +125,7 @@ func TestMainCLIAcceptance(t *testing.T) {
 			{"--help", "private_marker"}, {"-h", "run"},
 			{"run", "--help", "--private_marker"},
 			{"run", "--help", "--inline-body-bytes=private_marker"},
+			{"run", "--help", "--dry-run=private_marker"},
 		} {
 			t.Run(strings.Join(args, " "), func(t *testing.T) {
 				child, stop := context.WithTimeout(ctx, 10*time.Second)
@@ -139,6 +143,62 @@ func TestMainCLIAcceptance(t *testing.T) {
 					value.Error.Code != "INVALID_USAGE" || value.Error.Message != "Invalid usage." ||
 					stderr.Len() != 0 || strings.Contains(stdout.String(), "private_marker") {
 					t.Fatalf("usage envelope=%+v, stderr=%q", value, stderr.String())
+				}
+			})
+		}
+	})
+
+	t.Run("dryRunFilesWithoutSideEffects", func(t *testing.T) {
+		var calls atomic.Int32
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			calls.Add(1)
+			w.Header().Set("Content-Type", "application/octet-stream")
+			w.Write([]byte{0, 255})
+		}))
+		defer server.Close()
+		files := t.TempDir()
+		out := filepath.Join(files, "out")
+		if err := os.Mkdir(out, 0500); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.Chmod(out, 0700) })
+		jar := filepath.Join(files, "new.cookies")
+		for _, flag := range []string{"--request", "--curl"} {
+			t.Run(flag, func(t *testing.T) {
+				text := `{"schemaVersion":1,"request":{"url":"` + server.URL + `/private_marker","auth":{"mode":"bearer","token":"private_marker"}}}`
+				if flag == "--curl" {
+					text = "curl '" + server.URL + "/private_marker' -H 'Authorization: Bearer private_marker'"
+				}
+				input := filepath.Join(files, "private_marker.input")
+				if err := os.WriteFile(input, []byte(text), 0640); err != nil {
+					t.Fatal(err)
+				}
+				before := mainCLIConfigSnapshot(t, files)
+				tmpBefore := mainCLIConfigSnapshot(t, tmp)
+				child, stop := context.WithTimeout(ctx, 10*time.Second)
+				defer stop()
+				command := newCommand(child, "run", flag, input, "--dry-run", "--cookie-jar", jar,
+					"--out-dir", out, "--inline-body-bytes=0")
+				var stdout, stderr bytes.Buffer
+				command.Stdout, command.Stderr = &stdout, &stderr
+				if err := command.Run(); err != nil {
+					t.Fatalf("dry-run process: %v, stdout=%q, stderr=%q", err, stdout.String(), stderr.String())
+				}
+				value := mainCLIDecode(t, stdout.String())
+				var metadata map[string]any
+				if err := json.Unmarshal(value.Validation, &metadata); err != nil {
+					t.Fatalf("missing validation: %v, stdout=%q", err, stdout.String())
+				}
+				if !value.OK || value.Result != nil || value.Error != nil || len(value.Help) != 0 ||
+					metadata["dryRun"] != true || metadata["method"] != "GET" ||
+					metadata["headerCount"] != float64(1) || len(metadata) != 8 ||
+					stderr.Len() != 0 || calls.Load() != 0 || strings.Contains(stdout.String(), "private_marker") ||
+					strings.Contains(stdout.String(), server.URL) {
+					t.Fatalf("dry-run envelope=%+v, stderr=%q, calls=%d", value, stderr.String(), calls.Load())
+				}
+				if !reflect.DeepEqual(before, mainCLIConfigSnapshot(t, files)) ||
+					!reflect.DeepEqual(tmpBefore, mainCLIConfigSnapshot(t, tmp)) {
+					t.Fatal("dry-run process changed files/directories")
 				}
 			})
 		}

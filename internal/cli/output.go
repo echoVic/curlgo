@@ -17,11 +17,12 @@ import (
 )
 
 type envelope struct {
-	SchemaVersion int          `json:"schemaVersion"`
-	OK            bool         `json:"ok"`
-	Result        *resultValue `json:"result,omitempty"`
-	Error         *errorValue  `json:"error,omitempty"`
-	Help          *helpValue   `json:"help,omitempty"`
+	SchemaVersion int              `json:"schemaVersion"`
+	OK            bool             `json:"ok"`
+	Result        *resultValue     `json:"result,omitempty"`
+	Error         *errorValue      `json:"error,omitempty"`
+	Help          *helpValue       `json:"help,omitempty"`
+	Validation    *validationValue `json:"validation,omitempty"`
 }
 
 type resultValue struct {

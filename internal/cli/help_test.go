@@ -57,6 +57,7 @@ func TestRunHelpSkipsInputAndConfiguration(t *testing.T) {
 		{"oversized_inline", []string{"--inline-body-bytes", strconv.Itoa(core.MaxBody + 1), "--help"}},
 		{"missing_config", []string{"--ca-file", missing, "--cookie-jar", missing, "--out-dir", missing, "--help"}},
 		{"invalid_proxy", []string{"--proxy", "ftp://private_marker", "--help"}},
+		{"dry_run", []string{"--dry-run", "--request", missing, "--out-dir=", "--help"}},
 		{"alias_enables_long", []string{"--help=false", "-h"}},
 		{"alias_enables_short", []string{"-h=false", "--help"}},
 	} {
@@ -78,7 +79,7 @@ func TestRunHelpRequiresValidFlagSyntax(t *testing.T) {
 	for i, args := range [][]string{
 		{"--help", "--private_marker"},
 		{"--private_marker", "--help"},
-		{"--help", "--dry-run"},
+		{"--help", "--dry-run=private_marker"},
 		{"--help", "--request"},
 		{"--help", "--ca-file"},
 		{"--help", "--inline-body-bytes"},
@@ -132,7 +133,7 @@ func TestHelpDescribesRunContract(t *testing.T) {
 	}
 	wantDefaults := map[string]string{
 		"request": "", "curl": "", "ca-file": "", "cookie-jar": "", "proxy": "", "out-dir": "",
-		"inline-body-bytes": strconv.Itoa(256 << 10), "help": "false", "h": "false",
+		"inline-body-bytes": strconv.Itoa(256 << 10), "help": "false", "h": "false", "dry-run": "false",
 	}
 	if len(value.Options) != len(wantDefaults) {
 		t.Fatalf("options=%+v, want %d registered flags", value.Options, len(wantDefaults))
@@ -143,7 +144,7 @@ func TestHelpDescribesRunContract(t *testing.T) {
 			i > 0 && value.Options[i-1].Name >= option.Name {
 			t.Fatalf("unexpected, stale, or unsorted option metadata: %+v", option)
 		}
-		if option.Name == "help" || option.Name == "h" {
+		if option.Name == "help" || option.Name == "h" || option.Name == "dry-run" {
 			if option.ValueName != "" {
 				t.Fatalf("boolean help flag has value name: %+v", option)
 			}

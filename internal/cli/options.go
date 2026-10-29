@@ -11,6 +11,7 @@ type runOptions struct {
 	request, curl, caFile, cookieJar, proxy, outDir string
 	inlineBytes                                     int
 	help                                            bool
+	dryRun                                          bool
 }
 
 func newRunFlagSet(options *runOptions) *flag.FlagSet {
@@ -23,6 +24,7 @@ func newRunFlagSet(options *runOptions) *flag.FlagSet {
 	flags.StringVar(&options.proxy, "proxy", "", "Explicit proxy")
 	flags.StringVar(&options.outDir, "out-dir", "", "Existing response body directory")
 	flags.IntVar(&options.inlineBytes, "inline-body-bytes", defaultInlineBodyBytes, "Inline response body byte limit")
+	flags.BoolVar(&options.dryRun, "dry-run", false, "Validate without sending a request")
 	flags.BoolVar(&options.help, "help", false, "Show machine-readable help")
 	flags.BoolVar(&options.help, "h", false, "Show machine-readable help")
 	return flags
