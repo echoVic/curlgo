@@ -83,7 +83,11 @@ func ExportCollection(w Workspace, opts CollectionExportOptions) (CollectionExpo
 			r.GroupID = ""
 		}
 		if opts.IncludeEnvironment {
-			r.Headers = mergeCollectionHeaders(w.Settings.GlobalHeaders, r.Headers)
+			headers, err := mergeCollectionHeaders(w.Settings.GlobalHeaders, r.Headers)
+			if err != nil {
+				return CollectionExportResult{}, err
+			}
+			r.Headers = headers
 		}
 		document.Requests = append(document.Requests, r)
 	}
@@ -154,18 +158,37 @@ func SaveCollection(path string, data []byte) error {
 	return atomicWrite(path, data)
 }
 
-func mergeCollectionHeaders(globals, request []Pair) []Pair {
+func mergeCollectionHeaders(globals, request []Pair) ([]Pair, error) {
 	override := make(map[string]bool, len(request))
+	requestTemplates := false
 	for _, h := range request {
-		override[strings.ToLower(strings.TrimSpace(h.Key))] = true
+		key := strings.TrimSpace(h.Key)
+		templated := variable.MatchString(key)
+		// Literal header names are case-insensitive; variable names are not.
+		if !templated {
+			key = strings.ToLower(key)
+		}
+		override[key] = true
+		requestTemplates = requestTemplates || templated
 	}
 	headers := make([]Pair, 0, len(globals)+len(request))
 	for _, h := range globals {
-		if !override[strings.ToLower(strings.TrimSpace(h.Key))] {
-			headers = append(headers, h)
+		key := strings.TrimSpace(h.Key)
+		templated := variable.MatchString(key)
+		if !templated {
+			key = strings.ToLower(key)
 		}
+		if override[key] {
+			continue
+		}
+		// Flattening loses global-header provenance, so later expansion
+		// could turn a retained global into a duplicate request header.
+		if len(request) > 0 && (requestTemplates || templated) {
+			return nil, fmt.Errorf("集合导出无法保留变量请求头名称的覆盖关系，请使用固定请求头名称或不包含环境")
+		}
+		headers = append(headers, h)
 	}
-	return append(headers, request...)
+	return append(headers, request...), nil
 }
 
 func collectionRequestPath(groups []RequestGroup, r Request) string {
