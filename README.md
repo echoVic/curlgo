@@ -10,6 +10,7 @@
 - Cookie：GUI 共享并持久化 Cookie Jar，重启后恢复，遵循域名、路径、Secure、过期及公共后缀规则；查看当前地址适用值或清空。CLI 跨调用共享需显式指定 Cookie 文件。
 - 自定义 CA，HTTP / HTTPS / SOCKS5 代理与绕过列表；默认校验证书、直连，不自动读取系统代理。
 - 多个环境、全局请求头，URL / Header / 正文使用 `{{name}}` 引用变量；请求同名 Header 覆盖全局配置。
+- 鉴权面板：Bearer、Basic 和 API Key（Header / Query）；响应变量提取：JSON Pointer 或响应头，完整 2xx 后原子写入环境，供后续请求引用。
 - curl 文本导入与复制导出，收藏请求，最近 100 条历史恢复，上次草稿自动恢复。
 - 收藏分组；Postman v2.1、Bruno 和原生 CurlGo 集合导入预览，CurlGo / Postman 集合导出；不执行集合脚本。
 - 浅色 / 深色主题，键盘操作，原生可调整的请求与响应分区。
@@ -45,7 +46,7 @@ curlgo run --curl imported.curl
 curlgo run --curl - <imported.curl
 ```
 
-输入与输出均使用 schema v1。JSON 缺省为 GET / HTTP、30 秒超时、跟随重定向；显式 `false` 保留，超时 0 拒绝。curl 未指定 `-L` 时不跟随重定向。退出码 0 / `ok: true` 表示响应捕获及输出成功，不代表业务成功，HTTP 401 / 404 / 500 也可退出 0；须检查 `result.statusCode` 与正文。退出码 1 为输入或配置错误，2 为传输、取消、超时或正文读取失败，3 为输出或 Cookie 保存失败。
+输入与输出均使用 schema v1。JSON 缺省为 GET / HTTP、30 秒超时、跟随重定向；显式 `false` 保留，超时 0 拒绝。curl 未指定 `-L` 时不跟随重定向。退出码 0 / `ok: true` 表示响应捕获、已配置的提取及输出成功，不代表业务成功，HTTP 401 / 404 / 500 也可退出 0；须检查 `result.statusCode` 与正文。退出码 1 为输入或配置错误，2 为传输、取消、超时、正文读取或响应提取失败，3 为输出或 Cookie 保存失败。
 
 小文本原样放在 `result.body.text`；二进制或超过默认 262144 字节内联阈值的正文保存到 `body.path`，须读取该文件。`--inline-body-bytes` 范围 0–4194304，0 让所有非空正文写文件；捕获最多 4 MiB，`truncated` 为真时不能声称响应完整或直接解析不完整 JSON。文件 0600，默认临时目录 0700，保留供调用方读取与清理；`--out-dir` 须为已有目录，不应删除用户目录或无关文件。`timing` 为毫秒，DNS / 连接 / TLS 累计已完成阶段，TTFB 从执行开始到最后响应首字节，total 到捕获结束；阶段可重叠，不可相加，正文 bytes 为自动解压后的应用字节而非网络流量。
 
@@ -54,6 +55,8 @@ CLI 不加载 GUI 工作区。变量来自 JSON `settings.environments` / `envir
 ## 操作
 
 直接输入完整地址发送，或点「导入 curl / 集合」；集合先预览再加入收藏，查询参数在「参数」页编辑。环境、全局请求头、CA 与代理在左下角配置，环境值使用 JSON 字符串对象。Cookie 收到 `Set-Cookie` 后自动保存，重启后恢复，可在 Cookie 页清空。收藏与历史可在左侧切换，收藏支持分组与集合导出。
+
+在「提取」页配置变量名及 `/data/access_token` 等路径，成功后可在下一条请求的鉴权中引用 `{{token}}`。规则、CLI 的 `result.extractedVariables` 契约及集合兼容性见[响应变量提取](docs/response-extraction.md)。
 
 | 快捷键 | 功能 |
 |---|---|

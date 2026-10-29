@@ -107,7 +107,7 @@ Keep default TLS verification. For a private CA, pass `--ca-file` or JSON `setti
 
 Set proxy routing through `--proxy` or JSON `settings.proxy` with `url` and optional comma-separated `bypass`. Supported proxies are HTTP, HTTPS, SOCKS5, and SOCKS5H; bare `host:port` is normalized to HTTP. If both JSON and flag URLs are present, normalized URLs must match; the JSON bypass list is retained and validated, not discarded. Loopback remains direct even with a proxy. Do not rely on `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`, system proxy settings, or GUI state.
 
-Use `--cookie-jar` only when the user needs a login chain across calls. Without it, each process has its own transient jar. With it, load and save the explicit plaintext snapshot, written with mode 0600. A missing file can be created; an existing invalid snapshot is rejected rather than overwritten. This is a CurlGo version-1 JSON Cookie snapshot, not a curl/Netscape jar.
+Use `--cookie-jar` only when the user needs a Cookie login chain across calls. Without it, each process has its own transient jar. With it, load and save the explicit plaintext snapshot, written with mode 0600. A missing file can be created; an existing invalid snapshot is rejected rather than overwritten. This is a CurlGo version-1 JSON Cookie snapshot, not a curl/Netscape jar.
 
 Run calls sharing a jar serially; there is no interprocess lock. Inspect the login response and business outcome before issuing the next request:
 
@@ -117,6 +117,14 @@ curlgo run --request verify.json --cookie-jar /absolute/private/cookies.json
 ```
 
 The jar is saved after execution even when execution fails, including partial body reads. A Cookie save failure yields `OUTPUT_ERROR` and exit 3, so do not assume the next call has updated login state. Keep user-owned jars unless their removal was authorized.
+
+## Response Variables
+
+For token-based login chains, configure JSON `request.extractors`, for example `[{"variable":"token","source":"json","selector":"/data/access_token"}]`. A header rule uses `source: header` and the header name as `selector`. JSON selectors are RFC 6901 JSON Pointers, not JSONPath; only strings, numbers and booleans can be extracted. Header rules require exactly one value. Disabled rules are skipped.
+
+Extraction runs only after complete successful HTTP 2xx responses, even when captured body bytes are written to a file. All enabled rules must succeed; otherwise exit 2 reports `EXTRACTION_ERROR`, keeps the captured response, and omits partial extracted values. Non-2xx responses skip extraction and keep the existing status/exit contract.
+
+On success, `result.extractedVariables` contains explicitly requested values, which can include credentials. Capture them privately, merge them into the next authorized request's `settings.environments`, and select that environment through `settings.environment`. Never echo tokens into reports or shell arguments. CLI does not modify input files, GUI environments, or implicit shared variable files. Inspect the HTTP status and business outcome before continuing the chain. Full format: [response-extraction.md](../../../docs/response-extraction.md).
 
 ## Multipart And Literal Text
 
@@ -147,10 +155,10 @@ Capture stdout privately and record the process exit status. Normally stdout is 
 |---|---|---|
 | 0 | A response was captured and output saved successfully | Inspect `result.statusCode` and the expected business fields; HTTP 401, 404, and 500 can all exit 0 |
 | 1 | Usage, input, configuration, or request construction failed | Fix the authorized input; do not report a completed API check |
-| 2 | Transmission, redirect, TLS, cancellation, timeout, or body-read failure | Inspect `error.code` and any partial result; distinguish failure from HTTP status |
+| 2 | Transmission, redirect, TLS, cancellation, timeout, body-read, or configured extraction failure | Inspect `error.code` and any partial result; distinguish failure from HTTP status |
 | 3 | Output body, Cookie snapshot, or stdout write failed | Treat output/state persistence as failed even if response metadata exists |
 
-`ok: true` means successful response capture and output, not a business success or a 2xx guarantee. Check both HTTP status and the authorized business assertion. `BODY_READ_ERROR` can retain response metadata and partial body bytes; do not treat those bytes as a complete response. `OUTPUT_ERROR` can retain partial metadata and includes a prior primary error code in its message when one exists.
+`ok: true` means successful response capture, configured extraction when applicable, and output, not a business success or a 2xx guarantee. Check both HTTP status and the authorized business assertion. `BODY_READ_ERROR` can retain response metadata and partial body bytes; do not treat those bytes as a complete response. `OUTPUT_ERROR` can retain partial metadata and includes a prior primary error code in its message when one exists.
 
 If stdout itself cannot be written, exit is 3 and stderr uses the fixed message `CurlGo: 无法写入结果 JSON`. Stdout may contain incomplete JSON; do not attempt to salvage it as a valid envelope or expect a second JSON error document.
 
