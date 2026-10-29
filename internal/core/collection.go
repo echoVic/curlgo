@@ -138,7 +138,7 @@ func checkImported(r Request) error {
 		}
 	}
 	for _, h := range r.Headers {
-		if !validToken(h.Key) {
+		if !validToken(variable.ReplaceAllString(h.Key, "x")) {
 			return fmt.Errorf("请求头名称 %q 无效", h.Key)
 		}
 		if !validHeaderValue(h.Value) {

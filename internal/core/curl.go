@@ -175,7 +175,12 @@ func ImportCURL(input string) (Request, error) {
 			if !strings.Contains(v, ":") {
 				v += ":"
 			}
-			r.Headers = append(r.Headers, Pair{"Authorization", "Basic " + base64.StdEncoding.EncodeToString([]byte(v))})
+			if variable.MatchString(v) {
+				user, password, _ := strings.Cut(v, ":")
+				r.Auth = Authentication{Mode: AuthBasic, Username: user, Password: password}
+			} else {
+				r.Headers = append(r.Headers, Pair{"Authorization", "Basic " + base64.StdEncoding.EncodeToString([]byte(v))})
+			}
 		case "--oauth2-bearer":
 			var v string
 			v, err = take()
@@ -283,7 +288,7 @@ func ExportCURL(r Request, s Settings) (string, error) {
 	if r.Protocol == "WebSocket" {
 		return "", fmt.Errorf("curl 导出仅用于 HTTP 和 SSE 请求")
 	}
-	r, err := Resolve(r, s)
+	r, basicPrivate, err := resolveForExport(r, s)
 	if err != nil {
 		return "", err
 	}
@@ -307,7 +312,13 @@ func ExportCURL(r Request, s Settings) (string, error) {
 		parts = append(parts, "--head")
 	}
 	for _, h := range r.Headers {
+		if basicPrivate && strings.EqualFold(h.Key, "Authorization") {
+			continue
+		}
 		parts = append(parts, "--header", shellQuote(h.Key+": "+h.Value))
+	}
+	if basicPrivate {
+		parts = append(parts, "--user", shellQuote(r.Auth.Username+":"+r.Auth.Password))
 	}
 	if r.BodyMode == BodyMultipart {
 		if len(r.FormParts) == 0 {

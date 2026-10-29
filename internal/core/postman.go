@@ -149,6 +149,10 @@ func ImportPostman(data []byte) (CollectionImport, error) {
 	vars := map[string]string{}
 	for _, v := range document.Variable {
 		if !v.Disabled && v.Key != "" {
+			if strings.HasPrefix(v.Key, SecretPrefix) {
+				out.warn("已跳过 secret.* 保留变量，请在机密变量中单独配置")
+				continue
+			}
 			vars[v.Key] = v.text()
 		}
 	}

@@ -92,6 +92,7 @@ func ExportCollection(w Workspace, opts CollectionExportOptions) (CollectionExpo
 	}
 	if opts.IncludeEnvironment {
 		document.Environments = make(map[string]map[string]string, len(w.Settings.Environments))
+		omittedSecrets := false
 		for env, vars := range w.Settings.Environments {
 			if vars == nil {
 				document.Environments[env] = nil
@@ -99,9 +100,16 @@ func ExportCollection(w Workspace, opts CollectionExportOptions) (CollectionExpo
 			}
 			copyVars := make(map[string]string, len(vars))
 			for key, value := range vars {
+				if strings.HasPrefix(key, SecretPrefix) {
+					omittedSecrets = true
+					continue
+				}
 				copyVars[key] = value
 			}
 			document.Environments[env] = copyVars
+		}
+		if omittedSecrets {
+			warnings.warn("已省略 secret.* 保留命名空间的环境变量值；机密变量不会随集合导出")
 		}
 		document.Environment = w.Settings.Environment
 	}

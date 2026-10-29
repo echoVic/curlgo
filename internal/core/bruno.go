@@ -506,6 +506,10 @@ func ImportBrunoDirectory(root string) (CollectionImport, error) {
 		}
 		ctx = applyBrunoFolder(&out, ctx, blocks, "collection.bru")
 		for _, p := range findBlock(blocks, "vars:pre-request").enabledPairs() {
+			if strings.HasPrefix(p.key, SecretPrefix) {
+				out.warn("已跳过 secret.* 保留变量，请在机密变量中单独配置")
+				continue
+			}
 			collectionVars[p.key] = p.value
 		}
 	}
@@ -525,6 +529,10 @@ func ImportBrunoDirectory(root string) (CollectionImport, error) {
 						vars[k] = v
 					}
 					for _, p := range findBlock(blocks, "vars").enabledPairs() {
+						if strings.HasPrefix(p.key, SecretPrefix) {
+							out.warn("已跳过 secret.* 保留变量，请在机密变量中单独配置")
+							continue
+						}
 						vars[p.key] = p.value
 					}
 					out.Environments[name] = vars

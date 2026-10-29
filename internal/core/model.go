@@ -106,6 +106,9 @@ func Expand(s string, vars map[string]string) (string, error) {
 		return value
 	})
 	if missing != "" {
+		if strings.HasPrefix(missing, SecretPrefix) {
+			return "", &MissingSecretError{Name: missing}
+		}
 		return "", &UnresolvedVariableError{Name: missing}
 	}
 	return out, nil
@@ -114,6 +117,10 @@ func Expand(s string, vars map[string]string) (string, error) {
 // Resolve does not mutate the saved template. Request headers override globals,
 // case-insensitively; repeated request headers remain repeated on the wire.
 func Resolve(r Request, s Settings) (Request, error) {
+	return ResolveWithSecrets(r, s, nil)
+}
+
+func resolve(r Request, s Settings, vars map[string]string, exporting bool) (Request, error) {
 	if err := ValidateRequestAssertions(r); err != nil {
 		return r, err
 	}
@@ -126,9 +133,8 @@ func Resolve(r Request, s Settings) (Request, error) {
 	if r.BodyMode == BodyRaw && len(r.Body) > MaxInput || len(r.URL) > 65536 {
 		return r, fmt.Errorf("请求超过大小限制")
 	}
-	vars := s.Environments[s.Environment]
 	var err error
-	r.Auth, err = resolveAuthentication(r.Auth, vars)
+	r.Auth, err = resolveAuthenticationMode(r.Auth, vars, exporting)
 	if err != nil {
 		return r, err
 	}
@@ -145,19 +151,25 @@ func Resolve(r Request, s Settings) (Request, error) {
 	if r.URL, err = expandURL(strings.TrimSpace(r.URL), vars); err != nil {
 		return r, err
 	}
-	u, err := url.Parse(r.URL)
-	if err != nil || u.Hostname() == "" {
-		return r, fmt.Errorf("请输入完整的请求地址")
-	}
-	if u.User != nil {
-		return r, fmt.Errorf("请在 Authorization 请求头中填写认证信息")
-	}
-	if r.Protocol == "WebSocket" {
-		if u.Scheme != "ws" && u.Scheme != "wss" {
-			return r, fmt.Errorf("WebSocket 地址应以 ws:// 或 wss:// 开头")
+	if exporting && variable.MatchString(r.URL) {
+		if err := validateCollectionURL(r.URL, r.Protocol); err != nil {
+			return r, err
 		}
-	} else if u.Scheme != "http" && u.Scheme != "https" {
-		return r, fmt.Errorf("HTTP 地址应以 http:// 或 https:// 开头")
+	} else {
+		u, err := url.Parse(r.URL)
+		if err != nil || u.Hostname() == "" {
+			return r, fmt.Errorf("请输入完整的请求地址")
+		}
+		if u.User != nil {
+			return r, fmt.Errorf("请在 Authorization 请求头中填写认证信息")
+		}
+		if r.Protocol == "WebSocket" {
+			if u.Scheme != "ws" && u.Scheme != "wss" {
+				return r, fmt.Errorf("WebSocket 地址应以 ws:// 或 wss:// 开头")
+			}
+		} else if u.Scheme != "http" && u.Scheme != "https" {
+			return r, fmt.Errorf("HTTP 地址应以 http:// 或 https:// 开头")
+		}
 	}
 	if r.Protocol != "HTTP" && r.Protocol != "SSE" && r.Protocol != "WebSocket" {
 		return r, fmt.Errorf("不支持的协议")
@@ -190,12 +202,22 @@ func Resolve(r Request, s Settings) (Request, error) {
 	if len(r.Body) > MaxInput || len(r.URL) > 65536 {
 		return r, fmt.Errorf("变量替换后的请求超过大小限制")
 	}
+	r.Headers = append([]Pair(nil), r.Headers...)
+	globals := append([]Pair(nil), s.GlobalHeaders...)
+	for _, headers := range [][]Pair{r.Headers, globals} {
+		for i := range headers {
+			headers[i].Key, err = Expand(headers[i].Key, vars)
+			if err != nil {
+				return r, err
+			}
+		}
+	}
 	override := map[string]bool{}
 	for _, h := range r.Headers {
 		override[strings.ToLower(strings.TrimSpace(h.Key))] = true
 	}
 	all := make([]Pair, 0, len(s.GlobalHeaders)+len(r.Headers))
-	for _, h := range s.GlobalHeaders {
+	for _, h := range globals {
 		if !override[strings.ToLower(strings.TrimSpace(h.Key))] {
 			all = append(all, h)
 		}
@@ -231,7 +253,11 @@ func Resolve(r Request, s Settings) (Request, error) {
 	}
 	for i := range all {
 		all[i].Key = strings.TrimSpace(all[i].Key)
-		if !validToken(all[i].Key) {
+		key := all[i].Key
+		if exporting {
+			key = variable.ReplaceAllString(key, "x")
+		}
+		if !validToken(key) {
 			return r, fmt.Errorf("请求头名称无效")
 		}
 		all[i].Value, err = Expand(all[i].Value, vars)
@@ -300,7 +326,7 @@ func ParseHeaders(text string) ([]Pair, error) {
 			continue
 		}
 		k, v, ok := strings.Cut(line, ":")
-		if !ok || !validToken(strings.TrimSpace(k)) {
+		if !ok || !validToken(variable.ReplaceAllString(strings.TrimSpace(k), "x")) {
 			return nil, fmt.Errorf("每行请求头应为 Name: value")
 		}
 		if !validHeaderValue(v) {

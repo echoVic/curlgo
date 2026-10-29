@@ -128,6 +128,9 @@ func validateNativeCollection(document nativeCollection) error {
 			return fmt.Errorf("环境「%s」的名称或变量映射无效", name)
 		}
 		for key, value := range vars {
+			if strings.HasPrefix(key, SecretPrefix) {
+				return fmt.Errorf("集合环境变量不能使用 secret.* 保留命名空间")
+			}
 			if !validCollectionMetadata(key, 1024) || !utf8.ValidString(value) {
 				return fmt.Errorf("环境「%s」的变量名称或编码无效", name)
 			}
@@ -167,7 +170,7 @@ func validateCollectionRequest(r Request) error {
 		return err
 	}
 	for _, h := range r.Headers {
-		if !validToken(strings.TrimSpace(h.Key)) || !validHeaderValue(h.Value) || !utf8.ValidString(h.Value) {
+		if !validToken(variable.ReplaceAllString(strings.TrimSpace(h.Key), "x")) || !validHeaderValue(h.Value) || !utf8.ValidString(h.Value) {
 			return fmt.Errorf("请求头名称或值无效")
 		}
 		if strings.EqualFold(strings.TrimSpace(h.Key), "Content-Length") || strings.EqualFold(strings.TrimSpace(h.Key), "Transfer-Encoding") {
