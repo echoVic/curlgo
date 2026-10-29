@@ -239,6 +239,67 @@ func TestMainCLIAcceptance(t *testing.T) {
 		}
 	})
 
+	t.Run("SIGINTWhileReadingStdin", func(t *testing.T) {
+		for _, flag := range []string{"--request", "--curl"} {
+			for _, dryRun := range []bool{false, true} {
+				name := strings.TrimPrefix(flag, "--")
+				if dryRun {
+					name += "_dryRun"
+				}
+				t.Run(name, func(t *testing.T) {
+					child, stop := context.WithTimeout(ctx, 5*time.Second)
+					defer stop()
+					args := []string{"run", flag, "-"}
+					if dryRun {
+						args = append(args, "--dry-run")
+					}
+					command := newCommand(child, args...)
+					input, err := command.StdinPipe()
+					if err != nil {
+						t.Fatal(err)
+					}
+					defer input.Close()
+					var stdout, stderr bytes.Buffer
+					command.Stdout, command.Stderr = &stdout, &stderr
+					if err := command.Start(); err != nil {
+						t.Fatal(err)
+					}
+					done := make(chan error, 1)
+					go func() { done <- command.Wait() }()
+					// Exceed the pipe buffer so completing this write requires
+					// the child to start reading after installing its handler.
+					if _, err := io.WriteString(input, strings.Repeat(" ", 256<<10)+"private_marker"); err != nil {
+						command.Process.Kill()
+						<-done
+						t.Fatalf("prepare blocked stdin: %v", err)
+					}
+					if err := command.Process.Signal(os.Interrupt); err != nil {
+						command.Process.Kill()
+						<-done
+						t.Fatal(err)
+					}
+					select {
+					case err = <-done:
+					case <-child.Done():
+						command.Process.Kill()
+						<-done
+						t.Fatal("SIGINT did not interrupt stdin input")
+					}
+					var exit *exec.ExitError
+					if !errors.As(err, &exit) || exit.ExitCode() != 2 {
+						t.Fatalf("stdin SIGINT exit=%v, stdout=%q, stderr=%q", err, stdout.String(), stderr.String())
+					}
+					value := mainCLIDecode(t, stdout.String())
+					if value.OK || value.Result != nil || value.Error == nil || value.Error.Code != "CANCELED" ||
+						len(value.Help) != 0 || len(value.Validation) != 0 || stderr.Len() != 0 ||
+						strings.Contains(stdout.String(), "private_marker") {
+						t.Fatalf("stdin SIGINT envelope=%+v, stderr=%q", value, stderr.String())
+					}
+				})
+			}
+		}
+	})
+
 	t.Run("actualSIGINT", func(t *testing.T) {
 		ready := make(chan struct{})
 		server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {

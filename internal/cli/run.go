@@ -124,6 +124,9 @@ func Run(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, args []
 	}
 	data, err := readSource(path, stdin)
 	if err != nil {
+		if fail := validationContextFailure(ctx); fail != nil {
+			return respondFailure(fail)
+		}
 		if errors.Is(err, errInputTooLarge) {
 			return respondFailure(inputFailure("INVALID_INPUT", "Input exceeds 1 MiB. Reduce the input size."))
 		}
