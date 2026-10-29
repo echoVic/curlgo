@@ -1,7 +1,6 @@
 package core
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -50,27 +49,6 @@ func withDefaultContentType(headers []Pair, contentType string) []Pair {
 	return append(headers, Pair{"Content-Type", contentType})
 }
 
-// setAuthorization replaces request Authorization headers: both clients let the
-// auth helper win over a header typed by hand.
-func setAuthorization(headers []Pair, value string) []Pair {
-	out := headers[:0:0]
-	for _, h := range headers {
-		if !strings.EqualFold(h.Key, "Authorization") {
-			out = append(out, h)
-		}
-	}
-	return append(out, Pair{"Authorization", value})
-}
-
-// basicAuthorization refuses variables because the credentials are encoded at
-// import time; a {{name}} placeholder inside base64 could never be resolved.
-func basicAuthorization(user, password string) (string, error) {
-	if variable.MatchString(user) || variable.MatchString(password) {
-		return "", fmt.Errorf("Basic 认证使用了变量，导入时无法编码")
-	}
-	return "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+password)), nil
-}
-
 type formField struct{ key, value string }
 
 // encodeForm percent-encodes fields like Postman and Bruno, except that
@@ -111,23 +89,6 @@ func graphQLBody(query, variables string) (string, error) {
 		return "", err
 	}
 	return `{"query":` + string(q) + `,"variables":` + string(vars) + `}`, nil
-}
-
-// addQueryParam appends an already-encoded pair before any fragment.
-func addQueryParam(raw, pair string) string {
-	base, fragment, hasFragment := strings.Cut(raw, "#")
-	sep := "?"
-	if strings.Contains(base, "?") {
-		sep = "&"
-		if strings.HasSuffix(base, "?") || strings.HasSuffix(base, "&") {
-			sep = ""
-		}
-	}
-	base += sep + pair
-	if hasFragment {
-		base += "#" + fragment
-	}
-	return base
 }
 
 // substitutePathParams replaces whole ":name" path segments, as Postman and
@@ -186,6 +147,9 @@ func checkImported(r Request) error {
 		if strings.EqualFold(h.Key, "Content-Length") || strings.EqualFold(h.Key, "Transfer-Encoding") {
 			return fmt.Errorf("请求头 %s 由客户端自动计算", h.Key)
 		}
+	}
+	if err := ValidateRequestAuthentication(r); err != nil {
+		return err
 	}
 	if r.BodyMode == BodyMultipart {
 		return validateFormParts(r.FormParts)

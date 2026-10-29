@@ -60,9 +60,13 @@ settings {
 	if r.Body != "{\n  \"a\": \"}\",\n  \"b\": [1, 2]\n}" {
 		t.Fatalf("多行正文错误：%q", r.Body)
 	}
-	want := []Pair{{"content-type", "application/vnd.api+json"}, {"x-quoted", "{{token}}"}, {"Authorization", "Bearer {{token}}"}}
-	if !reflect.DeepEqual(r.Headers, want) {
-		t.Fatalf("请求头错误：%v", r.Headers)
+	want := []Pair{{"content-type", "application/vnd.api+json"}, {"x-quoted", "{{token}}"}}
+	if !reflect.DeepEqual(r.Headers, want) || r.Auth != (Authentication{Mode: AuthBearer, Token: "{{token}}"}) {
+		t.Fatalf("请求头或认证配置错误：%+v", r)
+	}
+	wire, err := Resolve(r, Settings{Environment: "test", Environments: map[string]map[string]string{"test": {"base_url": "https://example.com", "token": "resolved"}}})
+	if err != nil || HTTPHeaders(wire.Headers).Get("Authorization") != "Bearer resolved" || HTTPHeaders(wire.Headers).Get("x-quoted") != "resolved" {
+		t.Fatalf("resolved Bruno headers = %v, error = %v", wire.Headers, err)
 	}
 }
 
@@ -192,21 +196,64 @@ func TestImportBrunoAuthInheritance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if HTTPHeaders(r.Headers).Get("Authorization") != "Basic "+base64.StdEncoding.EncodeToString([]byte("ada:secret")) {
-		t.Fatalf("集合认证继承错误：%v", r.Headers)
+	if len(r.Headers) != 0 || r.Auth != (Authentication{Mode: AuthBasic, Username: "ada", Password: "secret"}) {
+		t.Fatalf("集合认证继承错误：%+v", r)
+	}
+	wire, err := Resolve(r, Settings{})
+	if err != nil || HTTPHeaders(wire.Headers).Get("Authorization") != "Basic "+base64.StdEncoding.EncodeToString([]byte("ada:secret")) {
+		t.Fatalf("resolved inherited Basic = %v, error = %v", wire.Headers, err)
 	}
 	folder := collection
 	folder.auth = brunoAuth{mode: "none"}
-	if r, _, _ = parseBrunoRequest(inherit, folder); len(r.Headers) != 0 {
-		t.Fatalf("文件夹 auth none 没有覆盖集合认证：%v", r.Headers)
+	folder.headers = []Pair{{"authorization", "explicit"}}
+	r, _, err = parseBrunoRequest(inherit, folder)
+	if err != nil || r.Auth != (Authentication{}) || !reflect.DeepEqual(r.Headers, folder.headers) {
+		t.Fatalf("文件夹 auth none 没有覆盖集合认证：%+v %v", r, err)
 	}
-	for name, source := range map[string]string{
-		"oauth2":   "get {\n  url: https://example.com\n  auth: oauth2\n}\n",
-		"variable": "get {\n  url: https://example.com\n  auth: basic\n}\n\nauth:basic {\n  username: {{user}}\n  password: x\n}\n",
+	wire, err = Resolve(r, Settings{})
+	if err != nil || HTTPHeaders(wire.Headers).Get("Authorization") != "explicit" {
+		t.Fatalf("none must preserve explicit Authorization: %v %v", wire.Headers, err)
+	}
+	r, _, err = parseBrunoRequest("get {\n  url: https://example.com\n  auth: basic\n}\n\nauth:basic {\n  username: {{user}}\n  password: {{pass}}\n}\n", collection)
+	if err != nil || r.Auth != (Authentication{Mode: AuthBasic, Username: "{{user}}", Password: "{{pass}}"}) || len(r.Headers) != 0 {
+		t.Fatalf("Basic variable templates must import without encoding: %+v %v", r, err)
+	}
+	wire, err = Resolve(r, Settings{Environment: "test", Environments: map[string]map[string]string{"test": {"user": "ada", "pass": "s:cret"}}})
+	if err != nil || HTTPHeaders(wire.Headers).Get("Authorization") != "Basic "+base64.StdEncoding.EncodeToString([]byte("ada:s:cret")) {
+		t.Fatalf("resolved Basic variables = %v, error = %v", wire.Headers, err)
+	}
+	if _, _, err := parseBrunoRequest("get {\n  url: https://example.com\n  auth: oauth2\n}\n", brunoContext{}); err == nil {
+		t.Error("oauth2 认证不能如实导入，应拒绝")
+	}
+}
+
+func TestImportBrunoAPIKeyAuth(t *testing.T) {
+	for _, tc := range []struct {
+		name, placement, key, wireURL string
+		location                      APIKeyLocation
+	}{
+		{"default header", "", "X-Key", "https://example.com/?keep=%2f&api_key=old&api_key=older&flag#top", APIKeyHeader},
+		{"header", "headers", "X-Key", "https://example.com/?keep=%2f&api_key=old&api_key=older&flag#top", APIKeyHeader},
+		{"query", "queryparams", "api_key", "https://example.com/?keep=%2f&api_key=a%2Bb%26c%3D&flag#top", APIKeyQuery},
 	} {
-		if _, _, err := parseBrunoRequest(source, brunoContext{}); err == nil {
-			t.Errorf("%s 认证不能如实导入，应拒绝", name)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			source := "get {\n  url: https://example.com/?keep=%2f&api_key=old&api_key=older&flag#top\n  auth: apikey\n}\n\nauth:apikey {\n  key: {{key_name}}\n  value: {{key}}\n  placement: " + tc.placement + "\n}\n"
+			headers := []Pair{{"x-key", "old"}, {"X-KEY", "older"}}
+			r, _, err := parseBrunoRequest(source, brunoContext{headers: headers})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if r.Auth != (Authentication{Mode: AuthAPIKey, Key: "{{key_name}}", Value: "{{key}}", Location: tc.location}) || !reflect.DeepEqual(r.Headers, headers) || r.URL != "https://example.com/?keep=%2f&api_key=old&api_key=older&flag#top" {
+				t.Fatalf("API Key templates changed during import: %+v", r)
+			}
+			wire, err := Resolve(r, Settings{Environment: "test", Environments: map[string]map[string]string{"test": {"key_name": tc.key, "key": "a+b&c="}}})
+			if err != nil || wire.URL != tc.wireURL {
+				t.Fatalf("resolved API Key URL = %q, error = %v", wire.URL, err)
+			}
+			if tc.location == APIKeyHeader && !reflect.DeepEqual(HTTPHeaders(wire.Headers).Values("X-Key"), []string{"a+b&c="}) {
+				t.Fatalf("API Key must replace all same-name headers: %v", wire.Headers)
+			}
+		})
 	}
 }
 
@@ -287,15 +334,24 @@ func TestImportBrunoDirectory(t *testing.T) {
 		t.Fatalf("Bruno 分组结构丢失：%+v", got.Groups)
 	}
 	first := got.Requests[0]
-	if !reflect.DeepEqual(first.Headers, []Pair{{"x-collection", "yes"}, {"Authorization", "Bearer {{token}}"}}) {
-		t.Fatalf("集合请求头或认证错误：%v", first.Headers)
+	if !reflect.DeepEqual(first.Headers, []Pair{{"x-collection", "yes"}}) || first.Auth != (Authentication{Mode: AuthBearer, Token: "{{token}}"}) {
+		t.Fatalf("集合请求头或认证错误：%+v", first)
 	}
 	list := got.Requests[2]
-	if !reflect.DeepEqual(list.Headers, []Pair{{"x-collection", "yes"}, {"x-folder", "request"}}) {
-		t.Fatalf("文件夹请求头覆盖或 auth none 错误：%v", list.Headers)
+	if !reflect.DeepEqual(list.Headers, []Pair{{"x-collection", "yes"}, {"x-folder", "request"}}) || list.Auth != (Authentication{}) {
+		t.Fatalf("文件夹请求头覆盖或 auth none 错误：%+v", list)
 	}
 	if !reflect.DeepEqual(got.Environments, map[string]map[string]string{"Local": {"base_url": "http://localhost:8080", "token": "dev", "api": "v1"}}) {
 		t.Fatalf("环境错误（集合变量应并入每个环境）：%v", got.Environments)
+	}
+	settings := Settings{Environment: "Local", Environments: got.Environments}
+	wire, err := Resolve(first, settings)
+	if err != nil || wire.URL != "http://localhost:8080/a" || HTTPHeaders(wire.Headers).Get("Authorization") != "Bearer dev" {
+		t.Fatalf("resolved collection auth = %+v, error = %v", wire, err)
+	}
+	wire, err = Resolve(list, settings)
+	if err != nil || wire.URL != "http://localhost:8080/orders" || HTTPHeaders(wire.Headers).Get("Authorization") != "" {
+		t.Fatalf("resolved folder none = %+v, error = %v", wire, err)
 	}
 	if !warned(got, "Broken.bru") || !warned(got, "link.bru") || !warned(got, "password") {
 		t.Fatalf("损坏文件、符号链接和密钥变量应提示：%v", got.Warnings)

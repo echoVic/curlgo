@@ -188,10 +188,18 @@ type exportPostmanBehavior struct {
 }
 
 type exportPostmanRequest struct {
-	Method string            `json:"method"`
-	URL    string            `json:"url"`
-	Header []Pair            `json:"header,omitempty"`
-	Body   exportPostmanBody `json:"body"`
+	Method string             `json:"method"`
+	URL    string             `json:"url"`
+	Header []Pair             `json:"header,omitempty"`
+	Auth   *exportPostmanAuth `json:"auth,omitempty"`
+	Body   exportPostmanBody  `json:"body"`
+}
+
+type exportPostmanAuth struct {
+	Type   string                  `json:"type"`
+	Bearer []exportPostmanVariable `json:"bearer,omitempty"`
+	Basic  []exportPostmanVariable `json:"basic,omitempty"`
+	APIKey []exportPostmanVariable `json:"apikey,omitempty"`
 }
 
 type exportPostmanBody struct {
@@ -278,6 +286,27 @@ func encodePostmanCollection(document nativeCollection) (exportPostmanCollection
 
 func collectionPostmanRequest(r Request) *exportPostmanRequest {
 	out := &exportPostmanRequest{Method: r.Method, URL: r.URL, Header: r.Headers}
+	switch r.Auth.Mode {
+	case AuthBearer:
+		out.Auth = &exportPostmanAuth{Type: "bearer", Bearer: []exportPostmanVariable{
+			{Key: "token", Value: r.Auth.Token, Type: "string"},
+		}}
+	case AuthBasic:
+		out.Auth = &exportPostmanAuth{Type: "basic", Basic: []exportPostmanVariable{
+			{Key: "username", Value: r.Auth.Username, Type: "string"},
+			{Key: "password", Value: r.Auth.Password, Type: "string"},
+		}}
+	case AuthAPIKey:
+		location := r.Auth.Location
+		if location == "" {
+			location = APIKeyHeader
+		}
+		out.Auth = &exportPostmanAuth{Type: "apikey", APIKey: []exportPostmanVariable{
+			{Key: "key", Value: r.Auth.Key, Type: "string"},
+			{Key: "value", Value: r.Auth.Value, Type: "string"},
+			{Key: "in", Value: string(location), Type: "string"},
+		}}
+	}
 	if r.BodyMode == BodyMultipart {
 		out.Header = make([]Pair, 0, len(r.Headers))
 		for _, h := range r.Headers {

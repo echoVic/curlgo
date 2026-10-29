@@ -148,16 +148,50 @@ func (e *Engine) client(r Request) *http.Client {
 		if len(via) >= 10 {
 			return fmt.Errorf("重定向超过 10 次")
 		}
-		if len(via) > 0 && (req.URL.Host != via[0].URL.Host || req.URL.Scheme != via[0].URL.Scheme) {
+		crossedOrigin := false
+		if len(via) > 0 {
+			crossedOrigin = req.URL.Host != via[0].URL.Host || req.URL.Scheme != via[0].URL.Scheme
+			for _, previous := range via[1:] {
+				if previous.URL.Host != via[0].URL.Host || previous.URL.Scheme != via[0].URL.Scheme {
+					crossedOrigin = true
+					break
+				}
+			}
+		}
+		if crossedOrigin {
 			req.Header.Del("Authorization")
 			req.Header.Del("Cookie")
 			req.Header.Del("Proxy-Authorization")
+			if header, ok := authenticationHeader(r.Auth); ok {
+				req.Header.Del(header.Key)
+			}
+			if r.Auth.Mode == AuthAPIKey && r.Auth.Location == APIKeyQuery {
+				params, err := ParseQueryParams(req.URL.String())
+				if err != nil {
+					return fmt.Errorf("重定向地址的 Query 编码无效")
+				}
+				for i := range params {
+					if params[i].Key == r.Auth.Key {
+						params[i].Disabled = true
+					}
+				}
+				address, err := url.Parse(WithQueryParams(req.URL.String(), params))
+				if err != nil {
+					return fmt.Errorf("重定向地址无效")
+				}
+				req.URL = address
+			}
+		}
+		if r.Auth.Mode == AuthAPIKey && r.Auth.Location == APIKeyQuery {
+			// The previous URL may contain the credential, including on a same-origin hop.
+			req.Header.Del("Referer")
 		}
 		return nil
 	}
 	return c
 }
-func (e *Engine) Run(ctx context.Context, r Request, emit func(Event)) error {
+func (e *Engine) Run(ctx context.Context, r Request, emit func(Event)) (runErr error) {
+	defer func() { runErr = redactAuthenticationError(runErr, r.Auth) }()
 	if r.Protocol == "WebSocket" {
 		return fmt.Errorf("请通过连接操作打开 WebSocket")
 	}
@@ -323,7 +357,8 @@ func splitLines(b []byte, atEOF bool) (int, []byte, error) {
 
 type Socket struct{ conn *websocket.Conn }
 
-func (e *Engine) Connect(ctx context.Context, r Request) (*Socket, Event, error) {
+func (e *Engine) Connect(ctx context.Context, r Request) (socket *Socket, event Event, connectErr error) {
+	defer func() { connectErr = redactAuthenticationError(connectErr, r.Auth) }()
 	c := e.client(r)
 	c.Timeout = time.Duration(r.TimeoutSeconds) * time.Second
 	start := time.Now()

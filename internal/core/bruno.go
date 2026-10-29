@@ -242,25 +242,20 @@ func readBrunoAuth(blocks []bruBlock, mode string) brunoAuth {
 func (a brunoAuth) apply(r *Request) error {
 	switch a.mode {
 	case "", "none":
+		r.Auth = Authentication{}
 	case "bearer":
-		r.Headers = setAuthorization(r.Headers, "Bearer "+a.fields["token"])
+		r.Auth = Authentication{Mode: AuthBearer, Token: a.fields["token"]}
 	case "basic":
-		value, err := basicAuthorization(a.fields["username"], a.fields["password"])
-		if err != nil {
-			return err
-		}
-		r.Headers = setAuthorization(r.Headers, value)
+		r.Auth = Authentication{Mode: AuthBasic, Username: a.fields["username"], Password: a.fields["password"]}
 	case "apikey":
-		key, value := a.fields["key"], a.fields["value"]
-		if key == "" {
-			return fmt.Errorf("API Key 认证缺少名称")
+		location := APIKeyLocation(a.fields["placement"])
+		switch location {
+		case "", "headers":
+			location = APIKeyHeader
+		case "queryparams":
+			location = APIKeyQuery
 		}
-		if a.fields["placement"] == "queryparams" {
-			pair, _ := encodeForm([]formField{{key, value}})
-			r.URL = addQueryParam(r.URL, pair)
-		} else {
-			r.Headers = append(r.Headers, Pair{key, value})
-		}
+		r.Auth = Authentication{Mode: AuthAPIKey, Key: a.fields["key"], Value: a.fields["value"], Location: location}
 	default:
 		return fmt.Errorf("暂不支持 %s 认证", a.mode)
 	}

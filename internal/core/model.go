@@ -39,19 +39,20 @@ type Pair struct {
 	Value string `json:"value"`
 }
 type Request struct {
-	ID              string       `json:"id"`
-	Name            string       `json:"name"`
-	GroupID         string       `json:"groupId,omitempty"`
-	Protocol        string       `json:"protocol"`
-	Method          string       `json:"method"`
-	URL             string       `json:"url"`
-	Headers         []Pair       `json:"headers,omitempty"`
-	Body            string       `json:"body,omitempty"`
-	BodyMode        BodyMode     `json:"bodyMode,omitempty"`
-	FormParts       []FormPart   `json:"formParts,omitempty"`
-	QueryParams     []QueryParam `json:"queryParams,omitempty"`
-	FollowRedirects bool         `json:"followRedirects"`
-	TimeoutSeconds  int          `json:"timeoutSeconds"`
+	ID              string         `json:"id"`
+	Name            string         `json:"name"`
+	GroupID         string         `json:"groupId,omitempty"`
+	Protocol        string         `json:"protocol"`
+	Method          string         `json:"method"`
+	URL             string         `json:"url"`
+	Headers         []Pair         `json:"headers,omitempty"`
+	Auth            Authentication `json:"auth,omitzero"`
+	Body            string         `json:"body,omitempty"`
+	BodyMode        BodyMode       `json:"bodyMode,omitempty"`
+	FormParts       []FormPart     `json:"formParts,omitempty"`
+	QueryParams     []QueryParam   `json:"queryParams,omitempty"`
+	FollowRedirects bool           `json:"followRedirects"`
+	TimeoutSeconds  int            `json:"timeoutSeconds"`
 }
 type Settings struct {
 	GlobalHeaders []Pair                       `json:"globalHeaders,omitempty"`
@@ -119,6 +120,20 @@ func Resolve(r Request, s Settings) (Request, error) {
 	}
 	vars := s.Environments[s.Environment]
 	var err error
+	r.Auth, err = resolveAuthentication(r.Auth, vars)
+	if err != nil {
+		return r, err
+	}
+	if err := validateAuthenticationBody(r.Auth, r.BodyMode); err != nil {
+		return r, err
+	}
+	if r.Auth.Mode == AuthAPIKey && r.Auth.Location == APIKeyQuery {
+		// Discard shadowed values before expanding the remaining URL template.
+		r.URL, _, err = replaceAPIKeyQuery(r.URL, r.Auth.Key, "", vars)
+		if err != nil {
+			return r, err
+		}
+	}
 	if r.URL, err = expandURL(strings.TrimSpace(r.URL), vars); err != nil {
 		return r, err
 	}
@@ -178,6 +193,25 @@ func Resolve(r Request, s Settings) (Request, error) {
 		}
 	}
 	all = append(all, r.Headers...)
+	authHeader, hasAuthHeader := authenticationHeader(r.Auth)
+	if hasAuthHeader {
+		filtered := all[:0]
+		for _, h := range all {
+			if !strings.EqualFold(strings.TrimSpace(h.Key), authHeader.Key) {
+				filtered = append(filtered, h)
+			}
+		}
+		all = filtered
+	}
+	if r.Auth.Mode == AuthAPIKey && r.Auth.Location == APIKeyQuery {
+		r.URL, err = withAPIKeyQuery(r.URL, r.Auth.Key, r.Auth.Value)
+		if err != nil {
+			return r, err
+		}
+		if len(r.URL) > 65536 {
+			return r, fmt.Errorf("鉴权后的请求地址超过大小限制")
+		}
+	}
 	if r.BodyMode == BodyMultipart {
 		filtered := all[:0]
 		for _, h := range all {
@@ -202,6 +236,10 @@ func Resolve(r Request, s Settings) (Request, error) {
 		if strings.EqualFold(all[i].Key, "Content-Length") || strings.EqualFold(all[i].Key, "Transfer-Encoding") {
 			return r, fmt.Errorf("Content-Length 和 Transfer-Encoding 由客户端自动计算，请移除它们")
 		}
+	}
+	if hasAuthHeader {
+		// The helper already expanded its fields; never expand a credential twice.
+		all = append(all, authHeader)
 	}
 	r.Headers = all
 	if !validToken(r.Method) {

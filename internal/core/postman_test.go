@@ -162,38 +162,59 @@ func TestImportPostmanAuth(t *testing.T) {
 	got, err := ImportPostman(postmanCollection(t, map[string]any{
 		"auth": auth("bearer", map[string]any{"token": "{{token}}"}),
 		"item": []any{
-			map[string]any{"name": "Open", "auth": map[string]any{"type": "noauth"}, "item": []any{postmanEntry("Public", map[string]any{"method": "GET", "url": "https://example.com/public"})}},
+			map[string]any{"name": "Open", "auth": map[string]any{"type": "noauth"}, "item": []any{postmanEntry("Public", map[string]any{"method": "GET", "url": "https://example.com/public", "header": []Pair{{"Authorization", "explicit"}}})}},
 			map[string]any{"name": "Inherit", "item": []any{postmanEntry("Private", map[string]any{"method": "GET", "url": "https://example.com/private"})}},
+			map[string]any{"name": "Override", "auth": auth("bearer", map[string]any{"token": "{{folder_token}}"}), "item": []any{postmanEntry("Folder", map[string]any{"method": "GET", "url": "https://example.com/folder", "auth": map[string]any{"type": "inherit"}})}},
 			postmanEntry("Basic", map[string]any{"method": "GET", "url": "https://example.com", "auth": auth("basic", map[string]any{"username": "ada", "password": "s:cret"})}),
-			postmanEntry("BasicVar", map[string]any{"method": "GET", "url": "https://example.com", "auth": auth("basic", map[string]any{"username": "{{user}}", "password": "x"})}),
-			postmanEntry("QueryKey", map[string]any{"method": "GET", "url": "https://example.com/a?q=1#top", "auth": auth("apikey", map[string]any{"key": "api_key", "value": "{{key}}", "in": "query"})}),
-			postmanEntry("HeaderKey", map[string]any{"method": "GET", "url": "https://example.com", "auth": auth("apikey", map[string]any{"key": "X-Api-Key", "value": "{{key}}"})}),
-			postmanEntry("Replace", map[string]any{"method": "GET", "url": "https://example.com", "header": []any{map[string]any{"key": "authorization", "value": "old"}}}),
+			postmanEntry("BasicVar", map[string]any{"method": "GET", "url": "https://example.com", "auth": auth("basic", map[string]any{"username": "{{user}}", "password": "{{pass}}"})}),
+			postmanEntry("QueryKey", map[string]any{"method": "GET", "url": "https://example.com/a?q=%2f&api_key=old&api_key=older&flag#top", "auth": auth("apikey", map[string]any{"key": "{{key_name}}", "value": "{{key}}", "in": "query"})}),
+			postmanEntry("HeaderKey", map[string]any{"method": "GET", "url": "https://example.com", "header": []Pair{{"x-api-key", "old"}, {"X-API-KEY", "older"}}, "auth": auth("apikey", map[string]any{"key": "X-Api-Key", "value": "{{key}}"})}),
+			postmanEntry("Replace", map[string]any{"method": "GET", "url": "https://example.com", "header": []Pair{{"authorization", "old"}, {"AUTHORIZATION", "older"}}}),
 			postmanEntry("OAuth", map[string]any{"method": "GET", "url": "https://example.com", "auth": auth("oauth2", map[string]any{"accessToken": "x"})}),
 		},
 	}))
 	if err != nil {
 		t.Fatal(err)
 	}
-	authorization := func(name string) []string {
-		return HTTPHeaders(requestNamed(t, got, name).Headers).Values("Authorization")
+	settings := Settings{Environment: "test", Environments: map[string]map[string]string{"test": {
+		"token": "resolved", "folder_token": "folder", "user": "ada", "pass": "s:cret", "key_name": "api_key", "key": "a+b&c=",
+	}}}
+	for _, tc := range []struct {
+		name, address, header, value, wireURL string
+		auth                                  Authentication
+		headers                               []Pair
+	}{
+		{name: "Public", address: "https://example.com/public", headers: []Pair{{"Authorization", "explicit"}}, header: "Authorization", value: "explicit"},
+		{name: "Private", address: "https://example.com/private", auth: Authentication{Mode: AuthBearer, Token: "{{token}}"}, header: "Authorization", value: "Bearer resolved"},
+		{name: "Folder", address: "https://example.com/folder", auth: Authentication{Mode: AuthBearer, Token: "{{folder_token}}"}, header: "Authorization", value: "Bearer folder"},
+		{name: "Basic", address: "https://example.com", auth: Authentication{Mode: AuthBasic, Username: "ada", Password: "s:cret"}, header: "Authorization", value: "Basic " + base64.StdEncoding.EncodeToString([]byte("ada:s:cret"))},
+		{name: "BasicVar", address: "https://example.com", auth: Authentication{Mode: AuthBasic, Username: "{{user}}", Password: "{{pass}}"}, header: "Authorization", value: "Basic " + base64.StdEncoding.EncodeToString([]byte("ada:s:cret"))},
+		{name: "QueryKey", address: "https://example.com/a?q=%2f&api_key=old&api_key=older&flag#top", auth: Authentication{Mode: AuthAPIKey, Key: "{{key_name}}", Value: "{{key}}", Location: APIKeyQuery}, wireURL: "https://example.com/a?q=%2f&api_key=a%2Bb%26c%3D&flag#top"},
+		{name: "HeaderKey", address: "https://example.com", headers: []Pair{{"x-api-key", "old"}, {"X-API-KEY", "older"}}, auth: Authentication{Mode: AuthAPIKey, Key: "X-Api-Key", Value: "{{key}}", Location: APIKeyHeader}, header: "X-Api-Key", value: "a+b&c="},
+		{name: "Replace", address: "https://example.com", headers: []Pair{{"authorization", "old"}, {"AUTHORIZATION", "older"}}, auth: Authentication{Mode: AuthBearer, Token: "{{token}}"}, header: "Authorization", value: "Bearer resolved"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := requestNamed(t, got, tc.name)
+			if r.Auth != tc.auth || r.URL != tc.address || !reflect.DeepEqual(r.Headers, tc.headers) {
+				t.Fatalf("auth import must preserve templates and explicit headers: %+v", r)
+			}
+			wire, err := Resolve(r, settings)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantURL := tc.wireURL
+			if wantURL == "" {
+				wantURL = tc.address
+			}
+			if wire.URL != wantURL {
+				t.Fatalf("resolved auth URL = %q, want %q", wire.URL, wantURL)
+			}
+			if tc.header != "" && !reflect.DeepEqual(HTTPHeaders(wire.Headers).Values(tc.header), []string{tc.value}) {
+				t.Fatalf("resolved auth headers = %v", wire.Headers)
+			}
+		})
 	}
-	if len(authorization("Public")) != 0 || !reflect.DeepEqual(authorization("Private"), []string{"Bearer {{token}}"}) {
-		t.Fatal("文件夹认证继承或 noauth 错误")
-	}
-	if want := "Basic " + base64.StdEncoding.EncodeToString([]byte("ada:s:cret")); !reflect.DeepEqual(authorization("Basic"), []string{want}) {
-		t.Fatalf("Basic 认证错误：%v", authorization("Basic"))
-	}
-	if !reflect.DeepEqual(authorization("Replace"), []string{"Bearer {{token}}"}) {
-		t.Fatalf("认证没有替换原 Authorization：%v", authorization("Replace"))
-	}
-	if r := requestNamed(t, got, "QueryKey"); r.URL != "https://example.com/a?q=1&api_key={{key}}#top" {
-		t.Fatalf("查询参数 API Key 错误：%s", r.URL)
-	}
-	if HTTPHeaders(requestNamed(t, got, "HeaderKey").Headers).Get("X-Api-Key") != "{{key}}" {
-		t.Fatal("请求头 API Key 错误")
-	}
-	if len(got.Requests) != 6 || !warned(got, "BasicVar", "OAuth", "oauth2") {
+	if len(got.Requests) != 8 || !warned(got, "OAuth", "oauth2") || warned(got, "BasicVar") {
 		t.Fatalf("不能如实导入的认证应跳过并提示：%d %v", len(got.Requests), got.Warnings)
 	}
 }

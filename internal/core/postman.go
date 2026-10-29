@@ -366,25 +366,17 @@ func applyPostmanBody(out *CollectionImport, r *Request, name string, b *postman
 func applyPostmanAuth(r *Request, a postmanAuth) error {
 	switch a.Type {
 	case "noauth":
+		r.Auth = Authentication{}
 	case "bearer":
-		r.Headers = setAuthorization(r.Headers, "Bearer "+a.Fields["token"])
+		r.Auth = Authentication{Mode: AuthBearer, Token: a.Fields["token"]}
 	case "basic":
-		value, err := basicAuthorization(a.Fields["username"], a.Fields["password"])
-		if err != nil {
-			return err
-		}
-		r.Headers = setAuthorization(r.Headers, value)
+		r.Auth = Authentication{Mode: AuthBasic, Username: a.Fields["username"], Password: a.Fields["password"]}
 	case "apikey":
-		key, value := a.Fields["key"], a.Fields["value"]
-		if key == "" {
-			return fmt.Errorf("API Key 认证缺少名称")
+		location := APIKeyLocation(a.Fields["in"])
+		if location == "" {
+			location = APIKeyHeader
 		}
-		if a.Fields["in"] == "query" {
-			pair, _ := encodeForm([]formField{{key, value}})
-			r.URL = addQueryParam(r.URL, pair)
-		} else {
-			r.Headers = append(r.Headers, Pair{key, value})
-		}
+		r.Auth = Authentication{Mode: AuthAPIKey, Key: a.Fields["key"], Value: a.Fields["value"], Location: location}
 	default:
 		return fmt.Errorf("暂不支持 %s 认证", a.Type)
 	}

@@ -50,6 +50,7 @@ func (t *httpRedirectTransport) RoundTrip(req *http.Request) (*http.Response, er
 }
 
 func (e *Engine) DoHTTP(parent context.Context, r Request, options HTTPOptions) (result HTTPResult, err error) {
+	defer func() { err = redactAuthenticationError(err, r.Auth) }()
 	state, trace := newHTTPTrace(time.Now(), time.Now)
 	defer func() { result.Timing = state.finish() }()
 

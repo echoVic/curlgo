@@ -174,6 +174,9 @@ func validateCollectionRequest(r Request) error {
 			return fmt.Errorf("Content-Length 和 Transfer-Encoding 由客户端自动计算，请移除它们")
 		}
 	}
+	if err := ValidateRequestAuthentication(r); err != nil {
+		return err
+	}
 	if r.Protocol == "WebSocket" && r.BodyMode == BodyMultipart {
 		return fmt.Errorf("WebSocket 不支持 multipart 表单")
 	}
