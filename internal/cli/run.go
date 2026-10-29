@@ -130,7 +130,18 @@ func Run(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, args []
 	}
 	result, executionErr := engine.DoHTTP(ctx, input.Request, core.HTTPOptions{})
 	fail = httpFailure(executionErr)
+	var extracted map[string]string
+	if executionErr == nil && result.StatusCode >= 200 && result.StatusCode < 300 {
+		var extractionErr error
+		extracted, extractionErr = core.ExtractVariables(input.Request.Extractors, result.Headers, result.Body, result.BodyTruncated)
+		if extractionErr != nil {
+			fail = &failure{Code: "EXTRACTION_ERROR", Message: "Response variable extraction failed.", Exit: ExitExecution}
+		}
+	}
 	wireResult, bodyErr := formatResult(result, options.inlineBytes, options.outDir)
+	if wireResult != nil {
+		wireResult.ExtractedVariables = extracted
+	}
 	var cookieErr error
 	if options.cookieJar != "" {
 		cookieErr = core.SaveCookieFile(options.cookieJar, engine.CookieSnapshot())

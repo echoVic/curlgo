@@ -26,14 +26,15 @@ type envelope struct {
 }
 
 type resultValue struct {
-	Method     string      `json:"method"`
-	URL        string      `json:"url"`
-	Status     string      `json:"status"`
-	Proto      string      `json:"proto"`
-	StatusCode int         `json:"statusCode"`
-	Headers    http.Header `json:"headers"`
-	Body       *bodyValue  `json:"body,omitempty"`
-	Timing     timingValue `json:"timing"`
+	Method             string            `json:"method"`
+	URL                string            `json:"url"`
+	Status             string            `json:"status"`
+	Proto              string            `json:"proto"`
+	StatusCode         int               `json:"statusCode"`
+	Headers            http.Header       `json:"headers"`
+	Body               *bodyValue        `json:"body,omitempty"`
+	Timing             timingValue       `json:"timing"`
+	ExtractedVariables map[string]string `json:"extractedVariables,omitempty"`
 }
 
 type errorValue struct {
