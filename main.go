@@ -1,18 +1,27 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"image/png"
 	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
 
+	"github.com/echoVic/curlgo/internal/cli"
 	"github.com/echoVic/curlgo/internal/core"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "run" {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+		exit := cli.Run(ctx, os.Stdin, os.Stdout, os.Stderr, os.Args[2:])
+		stop()
+		os.Exit(int(exit))
+	}
 	preview := flag.String("render", "", "渲染原生界面至 PNG")
 	dark := flag.Bool("dark", false, "使用深色主题")
 	flag.Parse()
