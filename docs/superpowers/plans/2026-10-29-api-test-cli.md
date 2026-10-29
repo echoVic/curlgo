@@ -57,7 +57,7 @@ git switch -c feat/api-test-cli
 - Modify: `internal/core/model.go`，`Expand` 的 missing 分支
 - Create: `internal/core/headless_error_test.go`
 
-- [ ] **Step 1: 新建以下失败测试。**
+- [x] **Step 1: 新建以下失败测试。**
 
 ```go
 package core
@@ -84,8 +84,8 @@ func TestHeadlessErrorTypes(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行 `go test ./internal/core -run '^TestHeadlessErrorTypes$' -count=1`。** 预期：编译失败，缺少 `HTTPError` 等类型。
-- [ ] **Step 3: 创建 `headless_error.go`，内容如下。**
+- [x] **Step 2: 运行 `go test ./internal/core -run '^TestHeadlessErrorTypes$' -count=1`。** 预期：编译失败，缺少 `HTTPError` 等类型。
+- [x] **Step 3: 创建 `headless_error.go`，内容如下。**
 
 ```go
 package core
@@ -142,7 +142,7 @@ func (e *UnresolvedVariableError) Error() string {
 }
 ```
 
-- [ ] **Step 4: 将 `Expand` 的 missing 分支替换为以下代码。**
+- [x] **Step 4: 将 `Expand` 的 missing 分支替换为以下代码。**
 
 ```go
 if missing != "" {
@@ -150,8 +150,8 @@ if missing != "" {
 }
 ```
 
-- [ ] **Step 5: 执行 `gofmt -w internal/core/headless_error.go internal/core/headless_error_test.go internal/core/model.go` 和 `go test ./internal/core -run 'TestHeadlessErrorTypes|TestExpand|TestResolve' -count=1`。** 预期：PASS，既有错误文案不变。
-- [ ] **Step 6: 提交。**
+- [x] **Step 5: 执行 `gofmt -w internal/core/headless_error.go internal/core/headless_error_test.go internal/core/model.go` 和 `go test ./internal/core -run 'TestHeadlessErrorTypes|TestExpand|TestResolve' -count=1`。** 预期：PASS，既有错误文案不变。
+- [x] **Step 6: 提交。**
 
 ```sh
 git add internal/core/headless_error.go internal/core/headless_error_test.go internal/core/model.go
@@ -165,7 +165,7 @@ git commit -m "feat(core): define typed headless HTTP results and errors"
 - Create: `internal/core/headless_trace.go`
 - Create: `internal/core/headless_trace_test.go`
 
-- [ ] **Step 1: 添加以下确定性测试。** 阶段测试用逻辑时钟；并发测试只查竞态和非负数，不查网络墙钟上限。
+- [x] **Step 1: 添加以下确定性测试。** 阶段测试用逻辑时钟；并发测试只查竞态和非负数，不查网络墙钟上限。
 
 ```go
 package core
@@ -244,8 +244,8 @@ func TestHeadlessTraceNoFirstByte(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行 `go test ./internal/core -run '^TestHeadlessTrace' -count=1`。** 预期：缺少 `newHTTPTrace`，编译失败。
-- [ ] **Step 3: 创建 `headless_trace.go`。** DNS/TLS 的 Go trace 回调不提供 attempt ID，使用开始队列；connect 按 network/address 区分并行拨号。HTTP 重定向串行，完成阶段累加；`finish` 冻结结果，忽略迟到回调。
+- [x] **Step 2: 运行 `go test ./internal/core -run '^TestHeadlessTrace' -count=1`。** 预期：缺少 `newHTTPTrace`，编译失败。
+- [x] **Step 3: 创建 `headless_trace.go`。** DNS/TLS 的 Go trace 回调不提供 attempt ID，使用开始队列；connect 按 network/address 区分并行拨号。HTTP 重定向串行，完成阶段累加；`finish` 冻结结果，忽略迟到回调。
 
 ```go
 package core
@@ -324,8 +324,8 @@ func (s *httpTraceState) finish() HTTPTiming {
 }
 ```
 
-- [ ] **Step 4: 运行 `gofmt -w internal/core/headless_trace.go internal/core/headless_trace_test.go` 和 `go test -race ./internal/core -run '^TestHeadlessTrace' -count=1`。** 预期：PASS，没有 data race。
-- [ ] **Step 5: 提交。**
+- [x] **Step 4: 运行 `gofmt -w internal/core/headless_trace.go internal/core/headless_trace_test.go` 和 `go test -race ./internal/core -run '^TestHeadlessTrace' -count=1`。** 预期：PASS，没有 data race。
+- [x] **Step 5: 提交。**
 
 ```sh
 git add internal/core/headless_trace.go internal/core/headless_trace_test.go
@@ -339,7 +339,7 @@ git commit -m "feat(core): collect synchronized HTTP phase timings"
 - Create: `internal/core/headless_http.go`
 - Create: `internal/core/headless_http_test.go`
 
-- [ ] **Step 1: 添加以下网络测试。**
+- [x] **Step 1: 添加以下网络测试。**
 
 ```go
 package core
@@ -400,8 +400,10 @@ func TestDoHTTPCanceled(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行 `go test ./internal/core -run '^TestDoHTTP' -count=1`。** 预期：缺少 `DoHTTP`，编译失败。
-- [ ] **Step 3: 创建 `headless_http.go`，内容如下。** `client()` 仍提供 CA、Cookie、代理和重定向安全策略；只在旁路 clone 的 Transport 上设 256 KiB 响应头上限。
+- [x] **Step 2: 运行 `go test ./internal/core -run '^TestDoHTTP' -count=1`。** 预期：缺少 `DoHTTP`，编译失败。
+- [x] **Step 3: 创建 `headless_http.go`，内容如下。** `client()` 仍提供 CA、Cookie、代理和重定向安全策略；只在旁路 clone 的 Transport 上设 256 KiB 响应头上限。
+
+实施审查补充：`http.Client` 在 `CheckRedirect` 前可能因无效 `Location` 失败；新增回归测试并通过传输层捕获解析错误，归类为 `REDIRECT_ERROR`，不匹配错误文案。关闭重定向时仍正常返回 3xx；有效重定向后的连接失败仍归类为 `CONNECT_ERROR`。307/308 还会在回调前调用 `GetBody`，因此只在启用跟随时安装 multipart 重放函数，避免关闭跟随时重开文件或丢失 3xx。
 
 ```go
 package core
@@ -551,8 +553,8 @@ func (e *Engine) DoHTTP(parent context.Context, r Request, options HTTPOptions) 
 }
 ```
 
-- [ ] **Step 4: 运行 `gofmt -w internal/core/headless_http.go internal/core/headless_http_test.go` 和 `go test ./internal/core -count=1`。** 预期：PASS，包括既有 `Engine.Run` / SSE / WebSocket 测试。
-- [ ] **Step 5: 提交。**
+- [x] **Step 4: 运行 `gofmt -w internal/core/headless_http.go internal/core/headless_http_test.go` 和 `go test ./internal/core -count=1`。** 预期：PASS，包括既有 `Engine.Run` / SSE / WebSocket 测试。
+- [x] **Step 5: 提交。**
 
 ```sh
 git add internal/core/headless_http.go internal/core/headless_http_test.go
@@ -567,7 +569,7 @@ git commit -m "feat(core): add raw headless HTTP execution"
 - Create: `internal/core/cookie_file_test.go`
 - Reuse without modification: `internal/core/store.go:atomicWrite`、`cookies.go:SavedCookie`
 
-- [ ] **Step 1: 添加以下失败测试。**
+- [x] **Step 1: 添加以下失败测试。**
 
 ```go
 package core
@@ -625,8 +627,8 @@ func TestCookieFileRejectsCorruptOriginal(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行 `go test ./internal/core -run '^TestCookieFile' -count=1`。** 预期：缺少文件 API，编译失败。
-- [ ] **Step 3: 创建 `cookie_file.go`。** 读取上限包括 envelope；写前再检查原件，避免损坏文件被覆盖。不创建父目录、不引入跨进程锁。
+- [x] **Step 2: 运行 `go test ./internal/core -run '^TestCookieFile' -count=1`。** 预期：缺少文件 API，编译失败。
+- [x] **Step 3: 创建 `cookie_file.go`。** 读取上限包括 envelope；写前再检查原件，避免损坏文件被覆盖。不创建父目录、不引入跨进程锁。
 
 ```go
 package core
@@ -698,8 +700,8 @@ func SaveCookieFile(path string, cookies []SavedCookie) error {
 }
 ```
 
-- [ ] **Step 4: 运行 `gofmt -w internal/core/cookie_file.go internal/core/cookie_file_test.go` 和 `go test ./internal/core -run 'TestCookieFile|TestCookie|TestStore' -count=1`。** 预期：PASS，文件权限 0600，损坏原件保持不变。
-- [ ] **Step 5: 提交。**
+- [x] **Step 4: 运行 `gofmt -w internal/core/cookie_file.go internal/core/cookie_file_test.go` 和 `go test ./internal/core -run 'TestCookieFile|TestCookie|TestStore' -count=1`。** 预期：PASS，文件权限 0600，损坏原件保持不变。
+- [x] **Step 5: 提交。**
 
 ```sh
 git add internal/core/cookie_file.go internal/core/cookie_file_test.go
@@ -714,7 +716,7 @@ git commit -m "feat(core): persist explicit versioned cookie jars"
 - Create: `internal/cli/input.go`
 - Create: `internal/cli/input_test.go`
 
-- [ ] **Step 1: 添加以下失败测试。**
+- [x] **Step 1: 添加以下失败测试。**
 
 ```go
 package cli
@@ -796,8 +798,8 @@ func TestInputSafeCurl(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行 `go test ./internal/cli -run '^TestInput' -count=1`。** 预期：缺少 `decodeInput`，编译失败。
-- [ ] **Step 3: 创建 `errors.go`，定义 CLI 共享类型。**
+- [x] **Step 2: 运行 `go test ./internal/cli -run '^TestInput' -count=1`。** 预期：缺少 `decodeInput`，编译失败。
+- [x] **Step 3: 创建 `errors.go`，定义 CLI 共享类型。**
 
 ```go
 package cli
@@ -821,7 +823,7 @@ func inputFailure(code, message string) *failure {
 }
 ```
 
-- [ ] **Step 4: 创建 `input.go`。** 两次严格解码用于保留 Request 的省略默认值；显式 false、0、空 method 不会被默认值重新覆盖。
+- [x] **Step 4: 创建 `input.go`。** 两次严格解码用于保留 Request 的省略默认值；显式 false、0、空 method 不会被默认值重新覆盖。
 
 ```go
 package cli
@@ -913,8 +915,8 @@ func decodeInput(data []byte, asCurl bool) (inputData, *failure) {
 }
 ```
 
-- [ ] **Step 5: 执行 `gofmt -w internal/cli/errors.go internal/cli/input.go internal/cli/input_test.go` 和 `go test ./internal/cli -run '^TestInput' -count=1`。** 预期：PASS。
-- [ ] **Step 6: 提交。**
+- [x] **Step 5: 执行 `gofmt -w internal/cli/errors.go internal/cli/input.go internal/cli/input_test.go` 和 `go test ./internal/cli -run '^TestInput' -count=1`。** 预期：PASS。
+- [x] **Step 6: 提交。**
 
 ```sh
 git add internal/cli/errors.go internal/cli/input.go internal/cli/input_test.go
@@ -928,7 +930,7 @@ git commit -m "feat(cli): decode strict JSON and safe curl requests"
 - Create: `internal/cli/output.go`
 - Create: `internal/cli/output_test.go`
 
-- [ ] **Step 1: 添加以下失败测试。**
+- [x] **Step 1: 添加以下失败测试。**
 
 ```go
 package cli
@@ -1022,8 +1024,8 @@ func TestOutputHTTPErrorMapping(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行 `go test ./internal/cli -run '^TestOutput' -count=1`。** 预期：缺少输出类型及函数，编译失败。
-- [ ] **Step 3: 创建 `output.go`。**
+- [x] **Step 2: 运行 `go test ./internal/cli -run '^TestOutput' -count=1`。** 预期：缺少输出类型及函数，编译失败。
+- [x] **Step 3: 创建 `output.go`。**
 
 ```go
 package cli
@@ -1235,8 +1237,8 @@ func emit(stdout, stderr io.Writer, value envelope, exit ExitCode) ExitCode {
 }
 ```
 
-- [ ] **Step 4: 执行 `gofmt -w internal/cli/output.go internal/cli/output_test.go` 和 `go test ./internal/cli -count=1`。** 预期：Task 5/6 全部 PASS。核实正文 UTF-8 字节数、二进制原样保存、empty text 字段存在、timing 小数毫秒保留。
-- [ ] **Step 5: 提交。**
+- [x] **Step 4: 执行 `gofmt -w internal/cli/output.go internal/cli/output_test.go` 和 `go test ./internal/cli -count=1`。** 预期：Task 5/6 全部 PASS。核实正文 UTF-8 字节数、二进制原样保存、empty text 字段存在、timing 小数毫秒保留。
+- [x] **Step 5: 提交。**
 
 ```sh
 git add internal/cli/output.go internal/cli/output_test.go
@@ -1251,7 +1253,7 @@ git commit -m "feat(cli): emit versioned results and bounded body files"
 - Create: `internal/cli/run_test.go`
 - Modify: `main.go` imports 与 `main` 开头
 
-- [ ] **Step 1: 添加以下失败测试。**
+- [x] **Step 1: 添加以下失败测试。**
 
 ```go
 package cli
@@ -1313,8 +1315,8 @@ func TestRunRejectsUsage(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行 `go test ./internal/cli -run '^TestRun' -count=1`。** 预期：缺少 `Run`，编译失败。
-- [ ] **Step 3: 创建 `run.go`。** `Run` 参数不含 `run` 本身；FlagSet 不向 stdout/stderr 打印可能包含输入的解析错误。
+- [x] **Step 2: 运行 `go test ./internal/cli -run '^TestRun' -count=1`。** 预期：缺少 `Run`，编译失败。
+- [x] **Step 3: 创建 `run.go`。** `Run` 参数不含 `run` 本身；FlagSet 不向 stdout/stderr 打印可能包含输入的解析错误。
 
 ```go
 package cli
@@ -1447,7 +1449,7 @@ func Run(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, args []
 }
 ```
 
-- [ ] **Step 4: 修改 `main.go`。** 添加下面三个 import，并将分发放在 `preview := flag.String(...)` 前；现有 GUI 与 `-render` 代码保持原有顺序。
+- [x] **Step 4: 修改 `main.go`。** 添加下面三个 import，并将分发放在 `preview := flag.String(...)` 前；现有 GUI 与 `-render` 代码保持原有顺序。
 
 ```go
 import (
@@ -1471,8 +1473,8 @@ if len(os.Args) > 1 && os.Args[1] == "run" {
 
 `os.Exit` 位于 CLI 资源已释放之后；SIGINT 走 context 取消，输出 `CANCELED` / 2。已有 `os` import 直接复用。
 
-- [ ] **Step 5: 运行 `gofmt -w internal/cli/run.go internal/cli/run_test.go main.go` 和 `go test ./... -count=1`。** 预期：PASS；Task 8 再覆盖真实进程分发和显式状态。
-- [ ] **Step 6: 提交。**
+- [x] **Step 5: 运行 `gofmt -w internal/cli/run.go internal/cli/run_test.go main.go` 和 `go test ./... -count=1`。** 预期：PASS；Task 8 再覆盖真实进程分发和显式状态。
+- [x] **Step 6: 提交。**
 
 ```sh
 git add internal/cli/run.go internal/cli/run_test.go main.go
@@ -1488,7 +1490,7 @@ git commit -m "feat(cli): add run command with explicit request state"
 - Create: `main_cli_test.go`
 - 必要的修复限定在本计划已列出的新执行链路，不通过改写现有 GUI 测试消除失败。
 
-- [ ] **Step 1: 添加以下核心验收测试。** DNS 失败用 DialContext 注入，不依赖外网；TLS 使用现有私有 CA 夹具。
+- [x] **Step 1: 添加以下核心验收测试。** DNS 失败用 DialContext 注入，不依赖外网；TLS 使用现有私有 CA 夹具。
 
 ```go
 package core
@@ -1753,8 +1755,8 @@ func TestDoHTTPBodyFailureTimeoutAndHeaderLimit(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行 `go test ./internal/core -run '^TestDoHTTP' -count=1`。** 预期：PASS；若失败，按断言定位已有新链路的具体原因再修复。不要把 TLS/DNS 测试改成公网请求。
-- [ ] **Step 3: 添加以下 CLI 集成测试。**
+- [x] **Step 2: 运行 `go test ./internal/core -run 'TestDoHTTP|TestHeadlessIntegration' -count=1`。** 预期：PASS；若失败，按断言定位已有新链路的具体原因再修复。不要把 TLS/DNS 测试改成公网请求。
+- [x] **Step 3: 添加以下 CLI 集成测试。**
 
 ```go
 package cli
@@ -1964,9 +1966,9 @@ func TestCLITruncationAndTemporaryBodyFiles(t *testing.T) {
 }
 ```
 
-- [ ] **Step 4: 运行 `go test ./internal/cli -count=1`。** 预期：PASS。Writer 失败测试指定了临时输出目录，不留下无法通过 stdout 找到的默认临时文件。
+- [x] **Step 4: 运行 `go test ./internal/cli -count=1`。** 预期：PASS。Writer 失败测试指定了临时输出目录，不留下无法通过 stdout 找到的默认临时文件。
 
-- [ ] **Step 5: 添加真实进程入口测试。** 在仓库根包创建 `main_cli_test.go`；测试只操作临时目录，对既有 workspace 只读快照。
+- [x] **Step 5: 添加真实进程入口测试。** 在仓库根包创建 `main_cli_test.go`；实际测试覆盖 `--request` 与 `--curl` 文件输入、服务器就绪后的 SIGINT，以及浅深色渲染，使用隔离配置目录校验 workspace 不变。
 
 ```go
 package main
@@ -2043,7 +2045,7 @@ func TestMainCLIDispatchAndRender(t *testing.T) {
 }
 ```
 
-- [ ] **Step 6: 运行完整验证。** 下列命令全部成功后才进入 skill 文档和交付；网络测试只使用本机服务器。
+- [x] **Step 6: 运行完整验证。** 下列命令全部成功后才进入 skill 文档和交付；网络测试只使用本机服务器。
 
 ```sh
 gofmt -w internal/core/headless_integration_test.go internal/cli/integration_test.go main_cli_test.go
@@ -2056,7 +2058,7 @@ CGO_ENABLED=0 go build ./...
 
 预期：测试和 race 全部 PASS；两个 vet 无诊断，build 成功。`-race` 不设 `CGO_ENABLED=0`，race detector 使用本机编译工具链；正常发布构建仍不依赖 cgo。
 
-- [ ] **Step 7: 提交验收测试与已验证的定向修复。** 先检查 `git diff --stat`，只 stage 计划内文件；下面命令覆盖新增验收测试。若前面修复了新执行器，明确另加对应文件路径。
+- [x] **Step 7: 提交验收测试与已验证的定向修复。** 先检查 `git diff --stat`，只 stage 计划内文件；下面命令覆盖新增验收测试。若前面修复了新执行器，明确另加对应文件路径。
 
 ```sh
 git add internal/core/headless_integration_test.go internal/cli/integration_test.go main_cli_test.go
@@ -2071,11 +2073,11 @@ git commit -m "test(api-test): cover transport state safety and process dispatch
 - Modify: `README.md`
 - 不创建另一个 HTTP 客户端、不添加 shell 执行 curl 的脚本。
 
-- [ ] **Step 1: 构建供 Agent 使用的二进制，运行下列 skill 验收场景对应的测试。** 服务器和请求由测试创建，断言覆盖退出码、schemaVersion、body.mode 和错误码。
+- [x] **Step 1: 构建供 Agent 使用的二进制，运行下列 skill 验收场景对应的测试。** 服务器和请求由测试创建，断言覆盖退出码、schemaVersion、body.mode 和错误码。
 
 ```sh
 CGO_ENABLED=0 go build -o /tmp/curlgo-api-test .
-go test ./internal/cli -run 'TestRunJSONAndCurl|TestInputSafeCurl|TestCLICAProxyConflictsAndInputFiles|TestCLICookiePersistenceAfterBodyFailure|TestCLITruncationAndTemporaryBodyFiles|TestCLIOutputFailurePreservesExecutionAndSecrets' -v -count=1
+go test ./internal/cli -run 'TestRunJSONAndCurl|TestInputCURLSafe|TestInputCURLReject|TestCLIIntegration' -v -count=1
 ```
 
 预期：构建成功，列出的测试全部 PASS；技能示例使用 PATH 中的 `curlgo`，或这个 `/tmp/curlgo-api-test` 二进制。
@@ -2090,7 +2092,7 @@ go test ./internal/cli -run 'TestRunJSONAndCurl|TestInputSafeCurl|TestCLICAProxy
 | 大 / 二进制正文 | 读取 body.path；检查 truncated；清理默认临时目录 |
 | Cookie 写回与执行同时失败 | `OUTPUT_ERROR` / 3，message 含原执行错误 code |
 
-- [ ] **Step 2: 创建以下完整 `.trae/skills/api-test/SKILL.md`。**
+- [x] **Step 2: 创建以下完整 `.trae/skills/api-test/SKILL.md`。**
 
 ````markdown
 ---
@@ -2190,7 +2192,7 @@ stdout 是一个 JSON 文档：
 v1 只执行单个 HTTP/HTTPS 请求；批量断言、headless SSE/WebSocket 和 GUI 收藏回放不属于本技能。
 ````
 
-- [ ] **Step 3: 更新 README 的 CLI 说明与已过时能力描述。** 将以下段落插入「操作」前：
+- [x] **Step 3: 更新 README 的 CLI 说明与已过时能力描述。** 将以下段落插入「操作」前：
 
 ````markdown
 ## Agent 与命令行
@@ -2224,8 +2226,8 @@ Agent 的调用规范见 [.trae/skills/api-test/SKILL.md](.trae/skills/api-test/
 | 首版边界：Cookie | 删除 `Cookie 暂不跨启动持久化`，保留团队协作等边界 |
 | 开发版本 | `需要 Go 1.27.3` |
 
-- [ ] **Step 4: 校验 skill 与文档。** 执行 `rg -n 'schemaVersion|Cookie|insecure|@file|body.path|timing|OUTPUT_ERROR' .trae/skills/api-test/SKILL.md README.md`，核对规则与 spec §5–11 一致；执行 `git diff --check`，预期无空白错误。用 Task 8 的进程测试确认 README 两个命令形态确实被支持。
-- [ ] **Step 5: 提交。**
+- [x] **Step 4: 校验 skill 与文档。** 执行 `rg -n 'schemaVersion|Cookie|insecure|@file|body.path|timing|OUTPUT_ERROR' .trae/skills/api-test/SKILL.md README.md`，核对规则与 spec §5–11 一致；执行 `git diff --check`，预期无空白错误。用 Task 8 的进程测试确认 README 两个命令形态确实被支持。
+- [x] **Step 5: 提交。**
 
 ```sh
 git add .trae/skills/api-test/SKILL.md README.md
@@ -2251,3 +2253,11 @@ git commit -m "docs(api-test): add agent skill and CLI usage"
 | §13 既有 GUI 回归与四项验收命令 | Task 8 全套 test/vet/mygo vet/build，另加核心 race |
 
 实施完成条件：九个任务全部勾选；上述验证命令有新鲜成功输出；新增 skill 可被 TRAE 发现；spec v1 字段/错误码无漂移；已有 GUI 单测与 `-render` 正常。此计划不包含 push、PR、合并、发布或替换当前运行的 GUI。
+
+## 实施验收记录（2026-10-29）
+
+- 九项任务均完成独立规范审查和代码质量审查；未增加依赖，GUI 执行器保持原有链路。
+- `go test -race ./internal/core ./internal/cli -count=1`、`CGO_ENABLED=0 go test ./... -count=1`、`go vet ./...`、`go tool mygo vet .`、`CGO_ENABLED=0 go build ./...` 全部通过。
+- 真实进程覆盖 JSON / curl 文件输入、HTTP 404 退出 0、SIGINT 返回 `CANCELED` / 2、隔离 GUI 配置不变、浅深色 1200×820 PNG 渲染。
+- `/tmp/curlgo-api-test` 已构建，并用本地 HTTP 服务器完成 JSON / curl 文件输入冒烟；schemaVersion、退出码和原始正文符合契约。
+- 项目 skill 位于 `.trae/skills/api-test/SKILL.md`，frontmatter、目录名、示例与正文格式验证通过。
