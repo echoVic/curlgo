@@ -24,6 +24,24 @@ CLI 帮助、预检与 `curlgo run` 不启动 GUI，向 stdout 输出一个 `sch
 CGO_ENABLED=0 go build -o /tmp/curlgo-api-test .
 ```
 
+### 项目 Agent 能力
+
+通用 Agent Skill 源码位于 [skills/api-test/](skills/api-test/SKILL.md)，作为 CurlGo 的项目能力随版本维护；`references/` 随技能包含断言、响应提取和机密变量文档。维护这些文档时，同步更新 `docs/` 与对应的 `skills/api-test/references/` 副本。
+
+在仓库根目录可安装到 Claude Code 与 Codex：
+
+```sh
+npx skills add ./skills/api-test -a claude-code -a codex
+```
+
+发布到公开 GitHub 仓库后，用户可通过 skills.sh 的 CLI 安装：
+
+```sh
+npx skills add echoVic/curlgo --skill api-test -a claude-code -a codex
+```
+
+技能安装分发操作规范及参考文档，运行仍需要已安装的 CurlGo 可执行文件，或 Go 1.27.3 与 CurlGo 源码。源码构建命令须在 CurlGo 仓库根目录执行。
+
 ### JSON 帮助
 
 根命令与 `run` 帮助均使用 schema v1 JSON，不是请求结果，也不需要请求输入：
@@ -114,7 +132,7 @@ curlgo run --curl - --dry-run <imported.curl
 
 小文本原样放在 `result.body.text`；二进制或超过默认 262144 字节内联阈值的正文保存到 `body.path`，须读取该文件。`--inline-body-bytes` 范围 0–4194304，0 让所有非空正文写文件；捕获最多 4 MiB，`truncated` 为真时不能声称响应完整或直接解析不完整 JSON。文件 0600，默认临时目录 0700，保留供调用方读取与清理；`--out-dir` 须为已有目录，不应删除用户目录或无关文件。`timing` 为毫秒，DNS / 连接 / TLS 累计已完成阶段，TTFB 从执行开始到最后响应首字节，total 到捕获结束；阶段可重叠，不可相加，正文 bytes 为自动解压后的应用字节而非网络流量。
 
-CLI 不加载 GUI 工作区。变量来自 JSON `settings.environments` / `environment`，而非 OS 环境；CA、Cookie、代理分别通过 `--ca-file`、`--cookie-jar`、`--proxy` 显式提供，不读取 `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`。凭证使用 0600 私有文件或 stdin，不放命令行参数；curl 只解析文本，不执行 shell 或隐式 `@file` 读取。响应头、正文和 URL 仍可能含秘密。安全输入、授权 multipart、串行登录链、错误与清理规则见项目技能 [api-test](.trae/skills/api-test/SKILL.md)；v1 不含脚本断言、集合运行器或无界面 SSE / WebSocket。
+CLI 不加载 GUI 工作区。变量来自 JSON `settings.environments` / `environment`，而非 OS 环境；CA、Cookie、代理分别通过 `--ca-file`、`--cookie-jar`、`--proxy` 显式提供，不读取 `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`。凭证使用 0600 私有文件或 stdin，不放命令行参数；curl 只解析文本，不执行 shell 或隐式 `@file` 读取。响应头、正文和 URL 仍可能含秘密。安全输入、授权 multipart、串行登录链、错误与清理规则见项目技能 [api-test](skills/api-test/SKILL.md)；v1 不含脚本断言、集合运行器或无界面 SSE / WebSocket。
 
 ### 结构化鉴权
 

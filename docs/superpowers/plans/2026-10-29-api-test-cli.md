@@ -2,11 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 交付同一个 Go 二进制中的 `curlgo run` 单请求 HTTP 执行器，以及可由 TRAE 发现的 `api-test` skill。
+**Goal:** 交付同一个 Go 二进制中的 `curlgo run` 单请求 HTTP 执行器，以及作为项目能力分发的 `api-test` skill。
 
 **Architecture:** 保持 `Engine.Run` 和 GUI 执行链路，新建 `Engine.DoHTTP`，复用请求模型、curl 解析、CA、代理与 Cookie Jar。CLI 通过显式输入和状态配置调用核心，输出版本化 JSON；skill 只规范调用和结果判定。
 
 **Tech Stack:** Go 1.27.3、标准库 `net/http` / `httptrace` / `encoding/json` / `flag` / `testing`，现有 MyGo 0.7.1 与 `golang.org/x/net`；不新增依赖。
+
+**目录修订：** 用户明确要求技能作为项目能力管理，源码已迁移至 [skills/api-test/SKILL.md](../../../skills/api-test/SKILL.md)，参考文档随包放入 `references/`。下文已完成步骤中的 `.trae/skills/api-test` 路径保留为首次实现记录；后续维护使用新目录。
 
 ---
 

@@ -1,6 +1,7 @@
 ---
 name: api-test
 description: Debug, verify, and smoke test APIs with CurlGo. Use for curl requests, status, headers, JSON, redirects, or login chains. Not for GUI replay, collection runners, SSE, or WebSocket.
+compatibility: Requires CurlGo on PATH, or Go 1.27.3 and a CurlGo source checkout to build it.
 ---
 
 # API Test
@@ -26,7 +27,9 @@ Check availability:
 command -v curlgo
 ```
 
-If available, use that `curlgo` consistently. Otherwise, from the CurlGo repository root, build the same application without cgo:
+If available, use that `curlgo` consistently. If it is missing, locate a trusted CurlGo executable or an existing CurlGo source checkout. Build only from that checkout's root after confirming its `go.mod` declares `module github.com/echoVic/curlgo`; the build requires Go 1.27.3. If neither is available, ask for the installation or source location. Do not build an unrelated API project as CurlGo.
+
+From the verified CurlGo checkout root, build the same application without cgo:
 
 ```sh
 CGO_ENABLED=0 go build -o /tmp/curlgo-api-test .
@@ -165,7 +168,7 @@ curlgo run --request request.json --secrets-file secrets.json
 
 CLI never reads GUI settings, vaults, keychains, or OS variables. Ordinary `settings.environments` keys beginning `secret.` cannot supply missing secrets. Missing references produce `MISSING_SECRET`; an invalid private file produces `INVALID_SECRETS`, both exit 1. Do not copy a secret into an ordinary reserved key to bypass a failure.
 
-Dry-run reads and validates this file but sends no request and writes no state. Help does not read it. No injected values are echoed in validation or diagnostics; normal raw response data, actual URLs and explicit extracted values can still contain secrets. The CLI never rewrites the private file. Full desktop and CLI contract: [project-secrets.md](../../../docs/project-secrets.md).
+Dry-run reads and validates this file but sends no request and writes no state. Help does not read it. No injected values are echoed in validation or diagnostics; normal raw response data, actual URLs and explicit extracted values can still contain secrets. The CLI never rewrites the private file. Full desktop and CLI contract: [project-secrets.md](references/project-secrets.md).
 
 ## Validate Without Sending
 
@@ -237,7 +240,7 @@ For token-based login chains, configure JSON `request.extractors`, for example `
 
 Extraction runs only after complete successful HTTP 2xx responses and all enabled response assertions passing, even when captured body bytes are written to a file. All enabled extractors must succeed; otherwise exit 2 reports `EXTRACTION_ERROR`, keeps the captured response, and omits partial extracted values. Non-2xx responses skip extraction; assertions still run on complete responses with any status.
 
-On success, `result.extractedVariables` contains explicitly requested values, which can include credentials. Capture them privately. Merge ordinary values into the next authorized request's `settings.environments`, selected by `settings.environment`. For a target `secret.token`, serialize its value into the next private file's `variables.token` and pass `--secrets-file`; never put it into an ordinary `secret.token` environment key. Never echo tokens into reports or shell arguments. CLI does not modify input files, private files, GUI environments, or implicit shared variable files. Inspect the HTTP status and business outcome before continuing the chain. Full format: [response-extraction.md](../../../docs/response-extraction.md).
+On success, `result.extractedVariables` contains explicitly requested values, which can include credentials. Capture them privately. Merge ordinary values into the next authorized request's `settings.environments`, selected by `settings.environment`. For a target `secret.token`, serialize its value into the next private file's `variables.token` and pass `--secrets-file`; never put it into an ordinary `secret.token` environment key. Never echo tokens into reports or shell arguments. CLI does not modify input files, private files, GUI environments, or implicit shared variable files. Inspect the HTTP status and business outcome before continuing the chain. Full format: [response-extraction.md](references/response-extraction.md).
 
 ## Declarative Response Assertions
 
@@ -258,7 +261,7 @@ After successful transport, every enabled rule produces an entry in `result.asse
 
 Any failed assertion returns `ok: false`, `error.code: ASSERTION_FAILED`, exit **4**, and the captured response plus full report. It prevents extraction and omits `extractedVariables`; do not merge variables or continue a login chain on that failure. Cookie capture and explicit jar saving still occur. Output/Cookie save failure takes precedence as `OUTPUT_ERROR` / exit 3. Reports omit actual/expected/selector values; user-provided names and the raw response can still contain secrets.
 
-Dry-run validates assertion configuration but runs no assertions, returns no report, and proves no API outcome. Passing assertions verify only the configured conditions; still inspect remaining authorized business fields. Stable rule codes include `PASSED`, `MISMATCH`, `MISSING_VALUE`, `INVALID_JSON`, `NON_SCALAR`, `TYPE_MISMATCH`, `AMBIGUOUS_HEADER`, `TRUNCATED_RESPONSE`, and `INVALID_BODY`. Full contract: [assertions.md](../../../docs/assertions.md).
+Dry-run validates assertion configuration but runs no assertions, returns no report, and proves no API outcome. Passing assertions verify only the configured conditions; still inspect remaining authorized business fields. Stable rule codes include `PASSED`, `MISMATCH`, `MISSING_VALUE`, `INVALID_JSON`, `NON_SCALAR`, `TYPE_MISMATCH`, `AMBIGUOUS_HEADER`, `TRUNCATED_RESPONSE`, and `INVALID_BODY`. Full contract: [assertions.md](references/assertions.md).
 
 ## Multipart And Literal Text
 

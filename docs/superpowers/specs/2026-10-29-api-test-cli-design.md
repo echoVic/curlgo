@@ -77,7 +77,7 @@ CurlGo 目前是一个纯本地、无账号、原生 GUI 的 API 客户端，核
 ```
 ┌──────────────────────────────────────────────────────────┐
 │ Agent                                                     │
-│   └─ .trae/skills/api-test/SKILL.md （操作规范）           │
+│   └─ skills/api-test/SKILL.md （操作规范）                  │
 └────────────────────────┬─────────────────────────────────┘
                          │ 调用
 ┌────────────────────────▼─────────────────────────────────┐
@@ -419,7 +419,7 @@ func (e *Engine) DoHTTP(
 
 ## 11. api-test Skill 行为边界
 
-`.trae/skills/api-test/SKILL.md`（项目内、可由 TRAE 发现）只做操作规范，不实现第二套 HTTP 客户端：
+`skills/api-test/SKILL.md` 是项目内的通用 Agent 能力，参考资料随包存放于 `references/`，客户端通过安装使用。它只做操作规范，不实现第二套 HTTP 客户端：
 
 - 触发：调试/验证/冒烟测试本地或内网 HTTP API、执行 curl、检查状态码/响应头/JSON/重定向/登录态。
 - 复杂请求优先生成临时 JSON 文件或 stdin，避免 secret 进命令行参数。
@@ -444,7 +444,7 @@ func (e *Engine) DoHTTP(
 | `internal/cli/input.go` | 新增 | JSON / curl 解码校验 |
 | `internal/cli/output.go` | 新增 | JSON envelope、正文内联/落盘、脱敏 |
 | `main.go` | 修改 | 增加 `run` 子命令分发 |
-| `.trae/skills/api-test/SKILL.md` | 新增 | Agent 操作规范与安全对照表 |
+| `skills/api-test/SKILL.md` | 新增 | Agent 操作规范与安全对照表 |
 | `internal/core/model.go` | 定向修改 | 未定义变量返回强类型错误，保留现有文案 |
 | 对应 `_test.go` | 新增 | 见 §13 |
 

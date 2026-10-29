@@ -68,7 +68,7 @@ Files: modify `internal/cli/input.go`、`options.go`、`run.go`、相关 `_test.
 
 ## Task 4: 文档与最终验收
 
-Files: modify `README.md`、`.trae/skills/api-test/SKILL.md`、本计划。
+Files: modify `README.md`、`skills/api-test/SKILL.md`、本计划。技能原路径随后按用户要求迁移至项目 `skills/` 目录。
 
 - [x] 更新帮助与 dry-run 示例、预检不表示网络/业务成功、目录写权限的限制；补齐当前 Bearer/Basic/API Key JSON 认证说明。skill 仍为 schema v1、项目作用域、合法 frontmatter，不添加第二个客户端。8 个 JSON 块、9 个行内 JSON 及本地链接校验通过，13 组非上传请求/鉴权示例经实际二进制预检通过。
 - [x] 运行（精确提交源码副本全部通过；工作区首次运行因并行新增的断言测试尚缺类型而中断）：
