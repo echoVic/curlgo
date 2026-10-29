@@ -49,7 +49,7 @@ curlgo run --help
 curlgo run -h
 ```
 
-Expect a schema-v1 JSON envelope with `schemaVersion: 1`, `ok: true`, and `help`, not `result`. Read `help.usage`, `options`, `protocols`, `urlSchemes`, `authentication`, `limits`, and `exitCodes`; do not interpret help as an API response. Help sends no request and reads no request, CA, or Cookie inputs. Bare `curlgo` still launches the GUI, so do not use it for help.
+Expect a schema-v1 JSON envelope with `schemaVersion: 1`, `ok: true`, and `help`, not `result`. Read `help.usage`, `options`, `protocols`, `urlSchemes`, `authentication`, `limits`, and `exitCodes`; do not interpret help as an API response. Help sends no request and reads no request, CA, Cookie, or secrets inputs. Bare `curlgo` still launches the GUI, so do not use it for help.
 
 ## Prepare And Run
 
@@ -148,6 +148,25 @@ Use this full structured example with documentation-only values, never real cred
 
 Supply real values only through a mode-0600 private input in an owned mode-0700 directory or stdin. Do not use CLI credential flags. For `auth-request.json`, preflight with `curlgo run --request auth-request.json --dry-run`; remove `--dry-run` only for an authorized transmission. Query credentials appear in the actual URL and can remain in normal `result.url`; capture it privately and redact it.
 
+## Private Variables
+
+For requests containing `{{secret.token}}`, supply `--secrets-file` with an explicit private regular-file path. Its only supported shape is:
+
+```json
+{"schemaVersion":1,"variables":{"token":"documentation-only-token"}}
+```
+
+Names omit `secret.`; values must be UTF-8 strings. Use mode 0600 in an owned mode-0700 directory on Unix; restrict Windows ACLs yourself. The file is limited to 1 MiB, 1000 variables, and 64 KiB per value. Unknown fields, null mappings/values, trailing documents, unreadable files, and Unix group/other permissions are rejected. `-` and inline secrets are not supported by this flag.
+
+```sh
+curlgo run --request request.json --secrets-file secrets.json --dry-run
+curlgo run --request request.json --secrets-file secrets.json
+```
+
+CLI never reads GUI settings, vaults, keychains, or OS variables. Ordinary `settings.environments` keys beginning `secret.` cannot supply missing secrets. Missing references produce `MISSING_SECRET`; an invalid private file produces `INVALID_SECRETS`, both exit 1. Do not copy a secret into an ordinary reserved key to bypass a failure.
+
+Dry-run reads and validates this file but sends no request and writes no state. Help does not read it. No injected values are echoed in validation or diagnostics; normal raw response data, actual URLs and explicit extracted values can still contain secrets. The CLI never rewrites the private file. Full desktop and CLI contract: [project-secrets.md](../../../docs/project-secrets.md).
+
 ## Validate Without Sending
 
 Add `--dry-run` to the chosen request or curl input and the same explicit configuration flags intended for execution:
@@ -218,7 +237,7 @@ For token-based login chains, configure JSON `request.extractors`, for example `
 
 Extraction runs only after complete successful HTTP 2xx responses and all enabled response assertions passing, even when captured body bytes are written to a file. All enabled extractors must succeed; otherwise exit 2 reports `EXTRACTION_ERROR`, keeps the captured response, and omits partial extracted values. Non-2xx responses skip extraction; assertions still run on complete responses with any status.
 
-On success, `result.extractedVariables` contains explicitly requested values, which can include credentials. Capture them privately, merge them into the next authorized request's `settings.environments`, and select that environment through `settings.environment`. Never echo tokens into reports or shell arguments. CLI does not modify input files, GUI environments, or implicit shared variable files. Inspect the HTTP status and business outcome before continuing the chain. Full format: [response-extraction.md](../../../docs/response-extraction.md).
+On success, `result.extractedVariables` contains explicitly requested values, which can include credentials. Capture them privately. Merge ordinary values into the next authorized request's `settings.environments`, selected by `settings.environment`. For a target `secret.token`, serialize its value into the next private file's `variables.token` and pass `--secrets-file`; never put it into an ordinary `secret.token` environment key. Never echo tokens into reports or shell arguments. CLI does not modify input files, private files, GUI environments, or implicit shared variable files. Inspect the HTTP status and business outcome before continuing the chain. Full format: [response-extraction.md](../../../docs/response-extraction.md).
 
 ## Declarative Response Assertions
 
@@ -276,7 +295,7 @@ Use stable `error.code` values and the exit status for machine classification, n
 
 | Exit | Stable diagnostic codes |
 |---|---|
-| 1 | `INVALID_USAGE`, `INVALID_INPUT`, `INVALID_CURL`, `UNRESOLVED_VARIABLE`, `INVALID_REQUEST`, `REQUEST_BUILD_ERROR` |
+| 1 | `INVALID_USAGE`, `INVALID_INPUT`, `INVALID_CURL`, `UNRESOLVED_VARIABLE`, `MISSING_SECRET`, `INVALID_SECRETS`, `INVALID_REQUEST`, `REQUEST_BUILD_ERROR` |
 | 2 | `CONNECT_ERROR`, `REDIRECT_ERROR`, `TLS_ERROR`, `TIMEOUT`, `CANCELED`, `BODY_READ_ERROR`, `EXTRACTION_ERROR` |
 | 3 | `OUTPUT_ERROR` when an error envelope can be emitted |
 | 4 | `ASSERTION_FAILED` |

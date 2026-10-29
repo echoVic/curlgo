@@ -10,6 +10,7 @@
 - Cookie：GUI 共享并持久化 Cookie Jar，重启后恢复，遵循域名、路径、Secure、过期及公共后缀规则；查看当前地址适用值或清空。CLI 跨调用共享需显式指定 Cookie 文件。
 - 自定义 CA，HTTP / HTTPS / SOCKS5 代理与绕过列表；默认校验证书、直连，不自动读取系统代理。
 - 多个环境、全局请求头，URL / Header / 正文使用 `{{name}}` 引用变量；请求同名 Header 覆盖全局配置。
+- 按环境管理机密变量：macOS 钥匙串保存主密钥，独立文件加密保存值；`{{secret.token}}` 引用，复制 curl 和集合保留引用，CLI 使用显式 `--secrets-file`。
 - 鉴权面板：Bearer、Basic 和 API Key（Header / Query）；声明式断言：状态码、响应头、JSON 字段及正文，每条规则均有结果；响应变量提取在完整 2xx 且断言通过后原子写入环境，供后续请求引用。
 - curl 文本导入与复制导出，收藏请求，最近 100 条历史恢复，上次草稿自动恢复。
 - 收藏分组；Postman v2.1、Bruno 和原生 CurlGo 集合导入预览，CurlGo / Postman 集合导出；不执行集合脚本。
@@ -36,7 +37,7 @@ curlgo run --help
 curlgo run -h
 ```
 
-成功时返回 `schemaVersion: 1`、`ok: true` 与 `help`，没有 `result`；`help` 提供 `usage`、`options`、`protocols`、`urlSchemes`、`authentication`、`limits` 与 `exitCodes`。帮助不发送请求或读取请求、CA、Cookie 输入。无参数的 `curlgo` 仍启动 GUI，不是帮助命令。
+成功时返回 `schemaVersion: 1`、`ok: true` 与 `help`，没有 `result`；`help` 提供 `usage`、`options`、`protocols`、`urlSchemes`、`authentication`、`limits` 与 `exitCodes`。帮助不发送请求或读取请求、CA、Cookie、机密输入。无参数的 `curlgo` 仍启动 GUI，不是帮助命令。
 
 ### 请求输入
 
@@ -107,7 +108,7 @@ curlgo run --curl - --dry-run <imported.curl
 | `--dry-run` | 本地准备与预检 JSON 输出成功，没有发送请求 |
 | 普通 `run` | 响应捕获、已配置的断言、适用的提取及输出成功，仅验证所列规则；无断言时 HTTP 401 / 404 / 500 也可退出 0，须检查 `result.statusCode` 与正文 |
 
-机器分类使用稳定的退出码与 `error.code`，不要匹配 `error.message`；消息只提供安全提示，不回显原始凭证、输入或底层错误。退出码 1 为用法、输入、配置或请求构造错误（`INVALID_USAGE`、`INVALID_INPUT`、`INVALID_CURL`、`UNRESOLVED_VARIABLE`、`INVALID_REQUEST`、`REQUEST_BUILD_ERROR`）；2 为执行或提取失败（`CONNECT_ERROR`、`REDIRECT_ERROR`、`TLS_ERROR`、`TIMEOUT`、`CANCELED`、`BODY_READ_ERROR`、`EXTRACTION_ERROR`）；3 为输出路径、正文输出或 Cookie 保存失败（`OUTPUT_ERROR`）；4 为响应断言失败（`ASSERTION_FAILED`）。stdout 本身写入失败也退出 3，此时 JSON 可能不完整，stderr 使用固定提示 `CurlGo: 无法写入结果 JSON`。
+机器分类使用稳定的退出码与 `error.code`，不要匹配 `error.message`；消息只提供安全提示，不回显原始凭证、输入或底层错误。退出码 1 为用法、输入、配置或请求构造错误（`INVALID_USAGE`、`INVALID_INPUT`、`INVALID_CURL`、`UNRESOLVED_VARIABLE`、`MISSING_SECRET`、`INVALID_SECRETS`、`INVALID_REQUEST`、`REQUEST_BUILD_ERROR`）；2 为执行或提取失败（`CONNECT_ERROR`、`REDIRECT_ERROR`、`TLS_ERROR`、`TIMEOUT`、`CANCELED`、`BODY_READ_ERROR`、`EXTRACTION_ERROR`）；3 为输出路径、正文输出或 Cookie 保存失败（`OUTPUT_ERROR`）；4 为响应断言失败（`ASSERTION_FAILED`）。stdout 本身写入失败也退出 3，此时 JSON 可能不完整，stderr 使用固定提示 `CurlGo: 无法写入结果 JSON`。
 
 ### 普通执行输出
 
@@ -158,6 +159,8 @@ API Key 省略 `location` 时默认 Header。鉴权变量同样从所选 JSON �
 
 将该输入作为 `auth-request.json` 时，先运行 `curlgo run --request auth-request.json --dry-run`；确认目标与请求获授权后，再去掉 `--dry-run` 发送。Query 凭证会出现在实际 URL 中，普通执行的 `result.url` 仍需私密捕获与脱敏。
 
+真实凭证也可与请求分开：将引用改为 `{{secret.token}}`，在 0600 私有 `secrets.json` 中保存 `{"schemaVersion":1,"variables":{"token":"…"}}`，使用 `curlgo run --request auth-request.json --secrets-file secrets.json --dry-run` 预检，再按授权发送。CLI 不读取桌面钥匙串，普通环境中的 `secret.*` 不能替代机密值。格式、锁定、导出和恢复规则见[机密变量](docs/project-secrets.md)。
+
 ## 操作
 
 直接输入完整地址发送，或点「导入 curl / 集合」；集合先预览再加入收藏，查询参数在「参数」页编辑。环境、全局请求头、CA 与代理在左下角配置，环境值使用 JSON 字符串对象。Cookie 收到 `Set-Cookie` 后自动保存，重启后恢复，可在 Cookie 页清空。收藏与历史可在左侧切换，收藏支持分组与集合导出。
@@ -178,7 +181,7 @@ API Key 省略 `location` 时默认 Header。鉴权变量同样从所选 JSON �
 
 GUI 的 macOS 数据保存在 `~/Library/Application Support/QingzhouAPI/`；其他平台使用 Go 的用户配置目录。CurlGo 保留初版数据目录名称，已有草稿、收藏与历史可继续读取。`workspace.json` 保存草稿、收藏与分组、历史、环境配置和 Cookie；`workspace.json.bak` 保留上一份有效内容。后台合并保存、同步文件、原子替换，关窗前完成保存。损坏原件会保留，并显示恢复提示；无法恢复时进入临时会话，避免覆盖原件。
 
-数据为本地明文，目录权限 0700、文件权限 0600。分享或提交数据文件前请检查请求凭证与环境值。历史不保存响应正文。客户端无遥测、自动更新或云同步。
+普通工作区数据为本地明文，目录权限 0700、文件权限 0600；机密值在独立的 `secret-vault.json` 中使用 AES-256-GCM 加密，主密钥在 macOS 登录钥匙串。已有字面凭证和普通环境值不自动迁移。分享或提交数据文件前请检查请求凭证与环境值。历史不保存响应正文。客户端无遥测、自动更新或云同步。
 
 ## 当前边界
 
