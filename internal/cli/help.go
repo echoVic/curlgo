@@ -54,6 +54,7 @@ func runHelp(flags *flag.FlagSet) *helpValue {
 			{ExitInput, "Invalid usage, input, or request."},
 			{ExitExecution, "HTTP execution failure, including timeout or cancellation."},
 			{ExitOutput, "Unable to write output."},
+			{ExitAssertion, "Response assertions failed; the captured HTTP response is retained."},
 		},
 	}
 	flags.VisitAll(func(f *flag.Flag) {

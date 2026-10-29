@@ -156,7 +156,7 @@ func TestHelpDescribesRunContract(t *testing.T) {
 	if len(wantDefaults) != 0 {
 		t.Fatalf("missing registered options: %v", wantDefaults)
 	}
-	if len(value.ExitCodes) != 4 {
+	if len(value.ExitCodes) != 5 {
 		t.Fatalf("exit codes=%+v", value.ExitCodes)
 	}
 	for i, code := range value.ExitCodes {

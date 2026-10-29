@@ -11,6 +11,7 @@ const (
 	ExitInput
 	ExitExecution
 	ExitOutput
+	ExitAssertion
 )
 
 type failure struct {

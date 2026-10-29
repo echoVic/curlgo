@@ -156,8 +156,20 @@ func Run(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, args []
 	}
 	result, executionErr := engine.DoHTTP(ctx, input.Request, core.HTTPOptions{})
 	fail = httpFailure(executionErr)
+	var assertions *core.AssertionReport
+	if executionErr == nil {
+		report, assertionErr := core.EvaluateAssertions(input.Request.Assertions, result.StatusCode, result.Headers, result.Body, result.BodyTruncated)
+		if assertionErr != nil {
+			fail = inputFailure("INVALID_REQUEST", "Invalid request.")
+		} else if len(report.Results) > 0 {
+			assertions = &report
+			if !report.Passed {
+				fail = &failure{Code: "ASSERTION_FAILED", Message: "Response assertions failed.", Exit: ExitAssertion}
+			}
+		}
+	}
 	var extracted map[string]string
-	if executionErr == nil && result.StatusCode >= 200 && result.StatusCode < 300 {
+	if fail == nil && result.StatusCode >= 200 && result.StatusCode < 300 {
 		var extractionErr error
 		extracted, extractionErr = core.ExtractVariables(input.Request.Extractors, result.Headers, result.Body, result.BodyTruncated)
 		if extractionErr != nil {
@@ -167,6 +179,7 @@ func Run(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, args []
 	wireResult, bodyErr := formatResult(result, options.inlineBytes, options.outDir)
 	if wireResult != nil {
 		wireResult.ExtractedVariables = extracted
+		wireResult.Assertions = assertions
 	}
 	var cookieErr error
 	if options.cookieJar != "" {
