@@ -68,6 +68,8 @@ type application struct {
 	exportingCollection                                                    bool
 	pickExportFile                                                         func(mygo.SaveDialogOptions) (string, error)
 	showCredentials                                                        bool
+	capturedResponse                                                       responseCapture
+	extractionNotice                                                       string
 }
 
 func newApplication(w core.Workspace) *application {
@@ -106,17 +108,20 @@ func cloneWorkspace(w core.Workspace) core.Workspace {
 	w.Draft.Headers = append([]core.Pair(nil), w.Draft.Headers...)
 	w.Draft.FormParts = append([]core.FormPart(nil), w.Draft.FormParts...)
 	w.Draft.QueryParams = append([]core.QueryParam(nil), w.Draft.QueryParams...)
+	w.Draft.Extractors = append([]core.ResponseExtractor(nil), w.Draft.Extractors...)
 	w.Requests = append([]core.Request(nil), w.Requests...)
 	for i := range w.Requests {
 		w.Requests[i].Headers = append([]core.Pair(nil), w.Requests[i].Headers...)
 		w.Requests[i].FormParts = append([]core.FormPart(nil), w.Requests[i].FormParts...)
 		w.Requests[i].QueryParams = append([]core.QueryParam(nil), w.Requests[i].QueryParams...)
+		w.Requests[i].Extractors = append([]core.ResponseExtractor(nil), w.Requests[i].Extractors...)
 	}
 	w.History = append([]core.History(nil), w.History...)
 	for i := range w.History {
 		w.History[i].Request.Headers = append([]core.Pair(nil), w.History[i].Request.Headers...)
 		w.History[i].Request.FormParts = append([]core.FormPart(nil), w.History[i].Request.FormParts...)
 		w.History[i].Request.QueryParams = append([]core.QueryParam(nil), w.History[i].Request.QueryParams...)
+		w.History[i].Request.Extractors = append([]core.ResponseExtractor(nil), w.History[i].Request.Extractors...)
 	}
 	w.Settings.GlobalHeaders = append([]core.Pair(nil), w.Settings.GlobalHeaders...)
 	envs := make(map[string]map[string]string, len(w.Settings.Environments))
@@ -219,6 +224,11 @@ func (a *application) closeWindow(e *mygo.CloseEvent) {
 }
 func (a *application) syncDraft() {
 	a.showCredentials = false
+	for i := range a.workspace.Draft.Extractors {
+		if a.workspace.Draft.Extractors[i].ID == "" {
+			a.workspace.Draft.Extractors[i].ID = core.NewID()
+		}
+	}
 	for i := range a.workspace.Draft.FormParts {
 		if a.workspace.Draft.FormParts[i].ID == "" {
 			a.workspace.Draft.FormParts[i].ID = core.NewID()
@@ -242,11 +252,14 @@ func (a *application) selectRequest(r core.Request) {
 	r.Headers = append([]core.Pair(nil), r.Headers...)
 	r.FormParts = append([]core.FormPart(nil), r.FormParts...)
 	r.QueryParams = append([]core.QueryParam(nil), r.QueryParams...)
+	r.Extractors = append([]core.ResponseExtractor(nil), r.Extractors...)
 	a.workspace.Draft = r
 	a.syncDraft()
 	a.response = ""
 	a.stream = ""
 	a.responseHeaders = nil
+	a.capturedResponse = responseCapture{}
+	a.extractionNotice = ""
 	a.status = "准备就绪"
 	a.page = 0
 	a.notice = ""
@@ -267,6 +280,7 @@ func (a *application) saveRequest() {
 	r.Headers = append([]core.Pair(nil), r.Headers...)
 	r.FormParts = append([]core.FormPart(nil), r.FormParts...)
 	r.QueryParams = append([]core.QueryParam(nil), r.QueryParams...)
+	r.Extractors = append([]core.ResponseExtractor(nil), r.Extractors...)
 	if strings.TrimSpace(r.Name) == "" {
 		a.notice = "先给请求起一个名字"
 		return
@@ -427,12 +441,15 @@ func (a *application) stop() {
 	}
 	if a.busy {
 		a.status = "已停止"
+		a.capturedResponse.complete = false
 	}
 	a.busy = false
 }
 func (a *application) addHistory(r core.Request, status string) {
+	r.Headers = append([]core.Pair(nil), r.Headers...)
 	r.FormParts = append([]core.FormPart(nil), r.FormParts...)
 	r.QueryParams = append([]core.QueryParam(nil), r.QueryParams...)
+	r.Extractors = append([]core.ResponseExtractor(nil), r.Extractors...)
 	a.workspace.History = append([]core.History{{Request: r, At: time.Now(), Status: status}}, a.workspace.History...)
 	if len(a.workspace.History) > 100 {
 		a.workspace.History = a.workspace.History[:100]
@@ -471,6 +488,10 @@ func (a *application) send() {
 	a.busy = true
 	a.generation++
 	generation := a.generation
+	r.Extractors = append([]core.ResponseExtractor(nil), r.Extractors...)
+	environment := a.workspace.Settings.Environment
+	a.capturedResponse = responseCapture{requestID: r.ID, generation: generation}
+	a.extractionNotice = ""
 	ctx, cancel := context.WithCancel(context.Background())
 	a.cancel = cancel
 	a.addHistory(a.workspace.Draft, "已发送")
@@ -524,13 +545,16 @@ func (a *application) send() {
 			ack := make(chan struct{})
 			post(func() {
 				defer close(ack)
-				if a.closed || a.generation != generation {
+				if a.closed || a.closing || a.generation != generation {
 					return
 				}
 				for _, e := range batch {
 					a.applyEvent(e)
 				}
 				if done {
+					if r.Protocol == "HTTP" && ctx.Err() == nil {
+						a.finishResponseExtraction(r, environment, generation)
+					}
 					a.busy = false
 					a.socket = nil
 					a.cancel = nil
@@ -575,9 +599,13 @@ func (a *application) applyEvent(e core.Event) {
 	switch e.Kind {
 	case "headers":
 		a.responseHeaders = e.Headers
+		a.capturedResponse.status = e.StatusCode
 		a.status = fmt.Sprintf("%s  ·  %d ms", e.Status, e.Elapsed.Milliseconds())
 	case "body":
 		a.response = e.Text
+		a.capturedResponse.body = e.RawBody
+		a.capturedResponse.received = true
+		a.capturedResponse.truncated = e.Truncated
 		a.responseLanguage = e.Language
 		a.status = fmt.Sprintf("%s  ·  %.1f KiB  ·  %d ms", strings.Split(a.status, "  ·")[0], float64(e.Bytes)/1024, e.Elapsed.Milliseconds())
 		if e.Truncated {
@@ -588,6 +616,8 @@ func (a *application) applyEvent(e core.Event) {
 	case "ws":
 		a.appendStream("← " + time.Now().Format("15:04:05") + "\n" + e.Text + "\n")
 	case "error":
+		a.capturedResponse.failed = true
+		a.capturedResponse.complete = false
 		a.notice = e.Text
 		a.status = "请求失败"
 	}
@@ -660,6 +690,10 @@ func (a *application) validateDraft() bool {
 		return false
 	}
 	if err := core.ValidateRequestAuthentication(a.workspace.Draft); err != nil {
+		a.notice = err.Error()
+		return false
+	}
+	if err := core.ValidateRequestExtractors(a.workspace.Draft); err != nil {
 		a.notice = err.Error()
 		return false
 	}

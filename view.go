@@ -254,7 +254,7 @@ func (a *application) requestView(c *ui.Context) {
 	})
 	ui.SplitVertical(c.Key("panes"), &a.split, func() {
 		ui.Column(c).Fill().Gap(10).Padding(0, 0, 8, 0).Children(func() {
-			ui.Tabs(c.Key("request-tabs"), &a.requestTab, "请求头", "正文", "Cookie", "选项", "参数", "鉴权")
+			ui.Tabs(c.Key("request-tabs"), &a.requestTab, "请求头", "正文", "Cookie", "选项", "参数", "鉴权", "提取")
 			switch a.requestTab {
 			case 0:
 				ui.Text(c, "单个请求的同名 Header 会覆盖全局 Header").FontSize(11).TextColor(t.TextMuted)
@@ -304,6 +304,8 @@ func (a *application) requestView(c *ui.Context) {
 				a.queryView(c)
 			case 5:
 				a.authView(c)
+			case 6:
+				a.extractionView(c)
 			}
 		})
 	}, func() { a.responseView(c) }).Grow(1).MinHeight(120)
