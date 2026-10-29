@@ -1,0 +1,19 @@
+package cli
+
+type ExitCode int
+
+const (
+	ExitOK ExitCode = iota
+	ExitInput
+	ExitExecution
+	ExitOutput
+)
+
+type failure struct {
+	Code, Message string
+	Exit          ExitCode
+}
+
+func inputFailure(code, message string) *failure {
+	return &failure{Code: code, Message: message, Exit: ExitInput}
+}
