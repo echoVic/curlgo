@@ -120,7 +120,7 @@ func (a *application) extractionView(c *ui.Context) {
 	t := c.Theme()
 	ui.Text(c, "HTTP 2xx 且断言通过后写入发送时的环境 · secret.token 写入机密变量").FontSize(11).TextColor(t.TextMuted)
 	ui.Scroll(c.Key("extraction-rules")).Grow(1).MinHeight(0).Children(func() {
-		ui.Column(c).FillWidth().Gap(8).Disabled(a.busy).Children(func() {
+		ui.Column(c).FillWidth().Gap(6).Disabled(a.busy).Children(func() {
 			if len(a.workspace.Draft.Extractors) == 0 {
 				ui.Text(c, "用 JSON Pointer（如 /data/access_token）或响应头提取变量。").FontSize(12).TextColor(t.TextMuted)
 			}
@@ -128,8 +128,12 @@ func (a *application) extractionView(c *ui.Context) {
 				r := &a.workspace.Draft.Extractors[i]
 				id, number := r.ID, strconv.Itoa(i+1)
 				enabled := !r.Disabled
-				ui.Column(c.Key(id)).FillWidth().Gap(6).Children(func() {
-					ui.Row(c).Gap(8).Children(func() {
+				opacity := float32(1)
+				if r.Disabled {
+					opacity = 0.5
+				}
+				ui.Column(c.Key(id)).FillWidth().Gap(6).Padding(10).Radius(t.Radius).Background(t.Surface).Opacity(opacity).Children(func() {
+					ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 						ui.Checkbox(c.Key("enabled"), &enabled, "").Label("启用提取规则 " + number).OnChange(func() {
 							r.Disabled = !enabled
 							a.persist()
@@ -142,7 +146,7 @@ func (a *application) extractionView(c *ui.Context) {
 						}
 						sel := ui.SelectBase(c.Key("source"), &r.Source)
 						sel.Trigger.Width(112).Height(30).Padding(5, 8).Radius(t.Radius).
-							Background(t.Surface).BorderWidth(1).BorderColor(t.Border).Label("提取来源 " + number).
+							Background(t.Background).BorderWidth(1).BorderColor(t.Border).Label("提取来源 " + number).
 							OnChange(a.persist).Children(func() {
 							ui.Row(c).FillWidth().Children(func() {
 								ui.Text(c, source).Grow(1)
@@ -178,7 +182,7 @@ func (a *application) extractionView(c *ui.Context) {
 		})
 	})
 	ui.Row(c).Gap(8).Children(func() {
-		ui.Button(c.Key("add-extractor"), "添加提取规则").
+		ui.Button(c.Key("add-extractor"), "＋ 添加提取规则").
 			Disabled(a.busy || len(a.workspace.Draft.Extractors) >= core.MaxExtractors).OnClick(a.addExtractor)
 		ui.Button(c.Key("manual-extraction"), "从当前响应提取").Disabled(!a.canExtractResponse()).OnClick(a.extractCurrentResponse)
 	})

@@ -213,12 +213,12 @@ func TestExtractionView(t *testing.T) {
 			a.selectRequest(appDraft(server.URL))
 			tt := ui.NewTester(a.view, 940, 680)
 			clickUI(t, tt, "提取")
-			clickUI(t, tt, "添加提取规则")
+			clickUI(t, tt, "＋ 添加提取规则")
 			inputUI(t, tt, "目标变量 1", "trace")
 			clickUI(t, tt, "提取来源 1")
 			clickUI(t, tt, "提取响应头")
 			inputUI(t, tt, "选择器 1", "X-Trace")
-			for _, label := range []string{"目标变量 1", "选择器 1", "提取来源 1", "添加提取规则", "从当前响应提取"} {
+			for _, label := range []string{"目标变量 1", "选择器 1", "提取来源 1", "＋ 添加提取规则", "从当前响应提取"} {
 				rect, ok := tt.Find(label)
 				if !ok || rect.W < 30 || rect.X+rect.W > 940 || rect.Y+rect.H > 680 {
 					t.Fatalf("extraction control outside minimum window %s: %+v", label, rect)

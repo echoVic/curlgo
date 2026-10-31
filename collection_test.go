@@ -139,7 +139,7 @@ func TestCollectionImportButtonsFitMinimumWindow(t *testing.T) {
 	a, _ := testApp(t)
 	a.page = 2
 	tt := ui.NewTester(a.view, 940, 680)
-	for _, label := range []string{"导入 Postman 集合", "导入 Bruno 集合", "导入请求"} {
+	for _, label := range []string{"Postman 集合", "Bruno 集合", "导入请求"} {
 		r, ok := tt.Find(label)
 		if !ok || r.X+r.W > 940 || r.Y+r.H > 680 {
 			t.Fatalf("最小窗口内看不到「%s」：%+v", label, r)

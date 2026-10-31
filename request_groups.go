@@ -217,7 +217,7 @@ func (a *application) groupsView(c *ui.Context) {
 	ui.List(c.Key("groups-list"), &a.groupList, len(rows), func(i int) {
 		r := rows[i]
 		ui.Row(c).Padding(0, 0, 0, float32(r.depth*16)).Children(func() {
-			ui.Button(c.Key("edit"), "▸ "+r.group.Name).FillWidth().
+			ui.Button(c.Key("edit"), "▸ "+r.group.Name).FillWidth().Height(34).Padding(6, 10).Radius(t.Radius).
 				Label("编辑分组 " + core.GroupPath(a.workspace.Groups, r.group.ID)).
 				OnClick(func() { a.editGroup(r.group.ID) })
 		})
@@ -226,8 +226,8 @@ func (a *application) groupsView(c *ui.Context) {
 			ui.Text(c, "创建第一个分组，把常用接口放在一起。").TextColor(t.TextMuted)
 		}
 	})
-	ui.Row(c).Gap(10).Children(func() {
-		ui.Button(c.Key("new-group"), "新建分组").OnClick(func() { a.editGroupID, a.groupName, a.groupParent = "", "", "" })
+	ui.Row(c).Gap(8).Children(func() {
+		ui.Button(c.Key("new-group"), "＋ 新建分组").OnClick(func() { a.editGroupID, a.groupName, a.groupParent = "", "", "" })
 		ui.Button(c.Key("new-child"), "新建子分组").Disabled(a.editGroupID == "").OnClick(func() {
 			a.groupParent = a.editGroupID
 			a.editGroupID, a.groupName = "", ""
@@ -236,25 +236,27 @@ func (a *application) groupsView(c *ui.Context) {
 		ui.Text(c, fmt.Sprintf("%d 个分组", len(rows))).FontSize(11).TextColor(t.TextMuted)
 	})
 	ui.Divider(c)
-	ui.TextInput(c.Key("group-name"), &a.groupName).FillWidth().Label("分组名称").Placeholder("分组名称")
-	options := a.groupOptions("顶层分组")
-	descendants := core.GroupSubtree(a.workspace.Groups, a.editGroupID)
-	filtered := options[:0]
-	for _, o := range options {
-		if !descendants[o.id] {
-			filtered = append(filtered, o)
+	ui.Column(c).FillWidth().Gap(10).Padding(12).Radius(t.Radius).Background(t.Surface).Children(func() {
+		ui.TextInput(c.Key("group-name"), &a.groupName).FillWidth().Label("分组名称").Placeholder("分组名称")
+		options := a.groupOptions("顶层分组")
+		descendants := core.GroupSubtree(a.workspace.Groups, a.editGroupID)
+		filtered := options[:0]
+		for _, o := range options {
+			if !descendants[o.id] {
+				filtered = append(filtered, o)
+			}
 		}
-	}
-	ui.Row(c).Gap(12).Children(func() {
-		ui.Text(c, "位置").TextColor(t.TextMuted)
-		groupSelect(c.Key("group-parent"), &a.groupParent, filtered, "上级分组", nil).Grow(1)
-	})
-	ui.Row(c).Gap(12).Children(func() {
-		label := "创建分组"
-		if a.editGroupID != "" {
-			label = "保存分组"
-		}
-		ui.PrimaryButton(c.Key("save-group"), label).OnClick(a.saveGroup)
-		ui.Button(c.Key("delete-group"), "删除分组，保留请求").Disabled(a.editGroupID == "").OnClick(a.deleteGroup)
+		ui.Row(c).Gap(12).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, "位置").TextColor(t.TextMuted)
+			groupSelect(c.Key("group-parent"), &a.groupParent, filtered, "上级分组", nil).Grow(1)
+		})
+		ui.Row(c).Gap(12).Children(func() {
+			label := "创建分组"
+			if a.editGroupID != "" {
+				label = "保存分组"
+			}
+			ui.PrimaryButton(c.Key("save-group"), label).OnClick(a.saveGroup)
+			ui.Button(c.Key("delete-group"), "删除分组，保留请求").Disabled(a.editGroupID == "").OnClick(a.deleteGroup)
+		})
 	})
 }

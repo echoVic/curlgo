@@ -213,8 +213,8 @@ func (a *application) collectionView(c *ui.Context) {
 	ui.Text(c, summary+"。确认前不会修改工作区，也不会发送请求。").TextColor(t.TextMuted)
 	if len(imported.Warnings) > 0 {
 		ui.Scroll(c.Key("collection-warnings")).FillWidth().MaxHeight(140).Children(func() {
-			ui.Column(c).FillWidth().Gap(6).Children(func() {
-				ui.Text(c, "需要注意").Bold()
+			ui.Column(c).FillWidth().Gap(6).Padding(10).Radius(t.Radius).Background(t.Surface).Children(func() {
+				ui.Text(c, "需要注意").Bold().TextColor(t.Warning)
 				for _, w := range imported.Warnings {
 					ui.Text(c, "· "+w).FontSize(12).Selectable()
 				}
@@ -230,8 +230,14 @@ func (a *application) collectionView(c *ui.Context) {
 	}
 	ui.List(c.Key("collection-preview"), &a.collectionList, len(imported.Requests), func(i int) {
 		r := imported.Requests[i]
-		ui.Column(c).FillWidth().Gap(4).PaddingY(6).Children(func() {
-			ui.Text(c, r.Method+"  "+short(r.Name, 60)).FontSize(12)
+		mc := methodColor(r.Method)
+		ui.Column(c).FillWidth().Gap(4).Padding(8).Radius(t.Radius).Background(t.Surface).Children(func() {
+			ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
+				ui.Box(c).Padding(1, 6).Radius(4).Background(mc).Children(func() {
+					ui.Text(c, r.Method).FontSize(10).Bold().TextColor(ui.Hex("#ffffff"))
+				})
+				ui.Text(c, short(r.Name, 50)).FontSize(12).Grow(1)
+			})
 			if r.GroupID != "" {
 				ui.Text(c, paths[r.GroupID]).FontSize(11).TextColor(t.TextMuted)
 			}

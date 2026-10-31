@@ -102,7 +102,7 @@ func (a *application) assertionsView(c *ui.Context) {
 	t := c.Theme()
 	ui.Text(c, "验证完整 HTTP 响应 · 全部通过后才提取变量 · 期望值按字面比较").FontSize(11).TextColor(t.TextMuted)
 	ui.Scroll(c.Key("assertion-rules")).Grow(1).MinHeight(0).Children(func() {
-		ui.Column(c).FillWidth().Gap(8).Disabled(a.busy).Children(func() {
+		ui.Column(c).FillWidth().Gap(6).Disabled(a.busy).Children(func() {
 			if len(a.workspace.Draft.Assertions) == 0 {
 				ui.Text(c, "添加状态码、响应头、JSON 字段或正文断言。").FontSize(12).TextColor(t.TextMuted)
 			}
@@ -110,8 +110,12 @@ func (a *application) assertionsView(c *ui.Context) {
 				r := &a.workspace.Draft.Assertions[i]
 				id, number := r.ID, strconv.Itoa(i+1)
 				enabled := !r.Disabled
-				ui.Column(c.Key(id)).FillWidth().Gap(6).Children(func() {
-					ui.Row(c).Gap(6).Children(func() {
+				opacity := float32(1)
+				if r.Disabled {
+					opacity = 0.5
+				}
+				ui.Column(c.Key(id)).FillWidth().Gap(6).Padding(10).Radius(t.Radius).Background(t.Surface).Opacity(opacity).Children(func() {
+					ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 						ui.Checkbox(c.Key("enabled"), &enabled, "").Label("启用断言 " + number).OnChange(func() {
 							r.Disabled = !enabled
 							a.assertionsChanged()
@@ -150,7 +154,7 @@ func (a *application) assertionsView(c *ui.Context) {
 		})
 	})
 	ui.Row(c).Gap(8).Children(func() {
-		ui.Button(c.Key("add-assertion"), "添加断言").
+		ui.Button(c.Key("add-assertion"), "＋ 添加断言").
 			Disabled(a.busy || len(a.workspace.Draft.Assertions) >= core.MaxAssertions).OnClick(a.addAssertion)
 		ui.Button(c.Key("validate-response"), "验证当前响应").Disabled(!a.canValidateResponse()).OnClick(a.validateCurrentResponse)
 	})
@@ -169,7 +173,7 @@ func (a *application) assertionSourceSelect(c *ui.Context, r *core.ResponseAsser
 		}
 	}
 	sel := ui.SelectBase(c, &r.Source)
-	sel.Trigger.Width(104).Height(30).Padding(5, 8).Radius(t.Radius).Background(t.Surface).
+	sel.Trigger.Width(104).Height(30).Padding(5, 8).Radius(t.Radius).Background(t.Background).
 		BorderWidth(1).BorderColor(t.Border).Label("断言来源 " + number).OnChange(func() {
 		r.Selector, r.Expected, r.Operator = "", "", core.AssertEquals
 		switch r.Source {
@@ -222,7 +226,7 @@ func (a *application) assertionOperatorSelect(c *ui.Context, r *core.ResponseAss
 		}
 	}
 	sel := ui.SelectBase(c, &r.Operator)
-	sel.Trigger.Width(86).Height(30).Padding(5, 8).Radius(t.Radius).Background(t.Surface).
+	sel.Trigger.Width(86).Height(30).Padding(5, 8).Radius(t.Radius).Background(t.Background).
 		BorderWidth(1).BorderColor(t.Border).Label("断言操作 " + number).OnChange(a.assertionsChanged).Children(func() {
 		ui.Row(c).FillWidth().Children(func() {
 			ui.Text(c, label).Grow(1)
@@ -249,13 +253,24 @@ func (a *application) assertionResultsView(c *ui.Context) {
 				ui.Text(c, "发送请求后查看断言结果；编辑规则后可验证当前响应。").FontSize(12).TextColor(t.TextMuted)
 				return
 			}
-			ui.Text(c, a.assertionNotice).Bold().FontSize(12).TextColor(t.Accent)
+			summaryColor := t.Success
+			if !a.assertionReport.Passed {
+				summaryColor = t.Danger
+			}
+			ui.Text(c, a.assertionNotice).Bold().FontSize(12).TextColor(summaryColor)
 			for _, result := range a.assertionReport.Results {
 				label := result.Name
 				if label == "" {
 					label = "断言 " + strconv.Itoa(result.Index+1)
 				}
+				indicator := "✓"
+				indicatorColor := t.Success
+				if !result.Passed {
+					indicator = "✕"
+					indicatorColor = t.Danger
+				}
 				ui.Row(c.Key(strconv.Itoa(result.Index))).FillWidth().Gap(10).Children(func() {
+					ui.Text(c, indicator).FontSize(13).Bold().TextColor(indicatorColor)
 					ui.Text(c, label).FontSize(12).Grow(1).TextColor(t.TextMuted)
 					ui.Text(c, result.Message).FontSize(12).Label(result.Message).TextColor(t.Text)
 				})

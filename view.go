@@ -29,8 +29,16 @@ func (a *application) view(c *ui.Context) {
 		t.Accent = ui.Hex("#6366f1")
 		t.AccentHover = ui.Hex("#818cf8")
 		t.AccentPressed = ui.Hex("#4f46e5")
+		t.AccentText = ui.Hex("#ffffff")
+		t.Danger = ui.Hex("#f87171")
+		t.Warning = ui.Hex("#fbbf24")
+		t.Success = ui.Hex("#34d399")
 		t.Selection = ui.RGBA(99, 102, 241, 0.30)
 		t.Focus = ui.RGBA(129, 140, 248, 0.55)
+		t.Scrollbar = ui.RGBA(139, 143, 163, 0.35)
+		t.ScrollbarWidth = 8
+		t.Inverse = ui.Hex("#1a1a2e")
+		t.InverseText = ui.Hex("#e4e6ed")
 	} else {
 		// 紫罗兰优雅 · 浅色
 		t.Background = ui.Hex("#f5f5fa")
@@ -43,10 +51,17 @@ func (a *application) view(c *ui.Context) {
 		t.Accent = ui.Hex("#6366f1")
 		t.AccentHover = ui.Hex("#4f46e5")
 		t.AccentPressed = ui.Hex("#4338ca")
+		t.AccentText = ui.Hex("#ffffff")
+		t.Danger = ui.Hex("#dc2626")
+		t.Warning = ui.Hex("#d97706")
+		t.Success = ui.Hex("#059669")
 		t.Selection = ui.RGBA(99, 102, 241, 0.20)
 		t.Focus = ui.RGBA(79, 70, 229, 0.45)
+		t.Scrollbar = ui.RGBA(107, 107, 128, 0.30)
+		t.ScrollbarWidth = 8
+		t.Inverse = ui.Hex("#1a1a2e")
+		t.InverseText = ui.Hex("#f5f5fa")
 	}
-	t.AccentText = ui.Hex("#ffffff")
 	t.Radius = 8
 	t.FontSize = 13
 	c.SetTheme(t)
@@ -58,12 +73,21 @@ func (a *application) view(c *ui.Context) {
 		c.OnShortcut(0, ui.KeyEscape, a.stop)
 	}
 	ui.Column(c).Fill().Background(t.Background).Disabled(a.closing).Children(func() {
-		ui.Row(c).Height(62).Padding(16, 22).Gap(12).BorderWidth(0, 0, 1, 0).BorderColor(t.Border).Children(func() {
-			ui.Box(c).Size(30, 30).Radius(10).Background(t.Accent).Center().Children(func() { ui.Text(c, ">").Bold().TextColor(t.AccentText) })
-			ui.Text(c, "CurlGo").FontSize(17).Bold()
-			ui.Text(c, "贴入请求，马上开始").TextColor(t.TextMuted).FontSize(12)
+		ui.Row(c).Height(58).Padding(14, 22).Gap(10).BorderWidth(0, 0, 1, 0).BorderColor(t.Border).Background(t.Surface).Children(func() {
+			ui.Box(c).Size(32, 32).Radius(10).Background(t.Accent).Center().Children(func() {
+				ui.Text(c, "›").FontSize(20).Bold().TextColor(t.AccentText)
+			})
+			ui.Column(c).Gap(1).Children(func() {
+				ui.Text(c, "CurlGo").FontSize(16).Bold()
+				ui.Text(c, "贴入请求，马上开始").TextColor(t.TextMuted).FontSize(11)
+			})
 			ui.Spacer(c)
-			ui.Text(c, "本地离线工作区").TextColor(t.Accent).FontSize(12)
+			ui.Box(c).Padding(4, 10).Radius(999).Background(t.SurfaceHover).Children(func() {
+				ui.Row(c).Gap(5).AlignItems(ui.Center).Children(func() {
+					ui.Box(c).Size(6, 6).Radius(999).Background(t.Success)
+					ui.Text(c, "本地离线").TextColor(t.TextMuted).FontSize(11)
+				})
+			})
 			ui.Select(c.Key("theme"), &a.workspace.Settings.Theme, []string{"浅色", "深色"}).Width(78).Label("主题").OnChange(a.persist)
 		})
 		ui.Row(c).Grow(1).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
@@ -87,7 +111,7 @@ func (a *application) view(c *ui.Context) {
 			})
 		})
 		if a.notice != "" {
-			ui.Row(c).Padding(10, 22).Gap(12).Background(t.Surface).BorderWidth(1, 0, 0, 0).BorderColor(t.Border).Children(func() {
+			ui.Row(c).Padding(10, 22).Gap(12).Background(t.Surface).BorderWidth(1, 0, 0, 0).BorderColor(t.Accent).Children(func() {
 				ui.Text(c, a.notice).Grow(1).FontSize(12)
 				ui.Button(c.Key("dismiss"), "知道了").OnClick(func() { a.notice = "" })
 			})
@@ -159,16 +183,34 @@ func (a *application) sidebar(c *ui.Context) {
 		ui.List(c.Key("requests"), &a.list, len(rows), func(i int) {
 			item := rows[i]
 			r := item.r
+			mc := methodColor(r.Method)
 			if a.libraryTab == 0 {
-				ui.Column(c).PaddingY(3).Children(func() {
-					ui.Button(c.Key("pick"), r.Method+"  "+short(r.Name, 20)).FillWidth().Height(36).Label("打开 " + r.Name).OnClick(func() { a.selectRequest(r) })
-					ui.Row(c).Children(func() {
-						ui.Text(c, short(r.URL, 24)).FontSize(10).TextColor(t.TextMuted).Grow(1)
+				ui.Column(c).PaddingY(2).Gap(2).Children(func() {
+					ui.ButtonBase(c.Key("pick")).FillWidth().Height(34).Padding(6, 8).Radius(t.Radius).Label("打开 " + r.Name).
+						OnClick(func() { a.selectRequest(r) }).Children(func() {
+						ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
+							ui.Box(c).Padding(1, 6).Radius(4).Background(mc).Children(func() {
+								ui.Text(c, r.Method).FontSize(10).Bold().TextColor(ui.Hex("#ffffff"))
+							})
+							ui.Text(c, short(r.Name, 18)).FontSize(12).Grow(1)
+						})
+					})
+					ui.Row(c).PaddingX(8).Children(func() {
+						ui.Text(c, short(r.URL, 26)).FontSize(10).TextColor(t.TextMuted).Grow(1)
 						ui.Button(c.Key("remove"), "移除").FontSize(10).OnClick(func() { a.deleteRequest(r.ID) })
 					})
 				})
 			} else {
-				ui.Button(c.Key("pick"), item.time+"  "+r.Method+"  "+short(r.URL, 16)).FillWidth().Height(36).OnClick(func() { a.selectRequest(r) })
+				ui.ButtonBase(c.Key("pick")).FillWidth().Height(34).Padding(6, 8).Radius(t.Radius).Label("打开 " + r.URL).
+					OnClick(func() { a.selectRequest(r) }).Children(func() {
+					ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
+						ui.Text(c, item.time).FontSize(10).TextColor(t.TextMuted)
+						ui.Box(c).Padding(1, 6).Radius(4).Background(mc).Children(func() {
+							ui.Text(c, r.Method).FontSize(10).Bold().TextColor(ui.Hex("#ffffff"))
+						})
+						ui.Text(c, short(r.URL, 20)).FontSize(12).Grow(1)
+					})
+				})
 			}
 		}).Grow(1).MinHeight(0).Children(func() {
 			if len(rows) == 0 {
@@ -208,6 +250,39 @@ func short(s string, n int) string {
 	}
 	return s
 }
+
+// methodColor returns a semantic color for an HTTP method, matching common
+// API tool conventions so the sidebar list is scannable at a glance.
+func methodColor(method string) ui.Color {
+	switch method {
+	case "GET":
+		return ui.Hex("#10b981")
+	case "POST":
+		return ui.Hex("#3b82f6")
+	case "PUT":
+		return ui.Hex("#f59e0b")
+	case "PATCH":
+		return ui.Hex("#a855f7")
+	case "DELETE":
+		return ui.Hex("#ef4444")
+	default:
+		return ui.Hex("#6b7280")
+	}
+}
+
+// parseStatusPrefix extracts the leading HTTP status code from a status
+// string like "200 OK  ·  12 ms". Returns ok=false for non-HTTP statuses.
+func parseStatusPrefix(status string) (int, bool) {
+	if len(status) < 3 {
+		return 0, false
+	}
+	code, err := strconv.Atoi(status[:3])
+	if err != nil || code < 100 || code > 599 {
+		return 0, false
+	}
+	return code, true
+}
+
 func (a *application) requestView(c *ui.Context) {
 	t := c.Theme()
 	r := &a.workspace.Draft
@@ -292,26 +367,34 @@ func (a *application) requestView(c *ui.Context) {
 					if len(cookies) == 0 {
 						ui.Text(c, "还没有 Cookie，收到 Set-Cookie 后会自动保存。").TextColor(t.TextMuted)
 					}
-					for _, cookie := range cookies {
-						ui.Text(c, cookie.Name+" = "+cookie.Value).Selectable()
-					}
+					ui.Column(c).FillWidth().Gap(4).Children(func() {
+						for _, cookie := range cookies {
+							ui.Row(c).FillWidth().Padding(6, 10).Radius(t.Radius).Background(t.Surface).Children(func() {
+								ui.Text(c, cookie.Name).Font("monospace").FontSize(12).Grow(1)
+								ui.Text(c, "=").TextColor(t.TextMuted).FontSize(12)
+								ui.Text(c, cookie.Value).Font("monospace").FontSize(12).TextColor(t.TextMuted).Grow(2).Selectable()
+							})
+						}
+					})
 				})
 				ui.Button(c.Key("clear-cookies"), "清空所有 Cookie").OnClick(func() { a.engine.ClearCookies(); a.persist(); a.toast = "Cookie 已清空" })
 			case 3:
-				ui.Row(c).Gap(10).Children(func() {
-					ui.Text(c, "超时（秒）")
-					ui.TextInput(c.Key("timeout"), &a.timeout).Width(100).Label("超时秒数").OnChange(func() {
-						n, err := strconv.Atoi(a.timeout)
-						if err != nil || n < 1 || n > 3600 {
-							a.notice = "超时为 1–3600 秒"
-							return
-						}
-						r.TimeoutSeconds = n
-						a.persist()
+				ui.Column(c).FillWidth().Gap(10).Padding(12).Radius(t.Radius).Background(t.Surface).Children(func() {
+					ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
+						ui.Text(c, "超时（秒）").TextColor(t.TextMuted)
+						ui.TextInput(c.Key("timeout"), &a.timeout).Width(100).Label("超时秒数").OnChange(func() {
+							n, err := strconv.Atoi(a.timeout)
+							if err != nil || n < 1 || n > 3600 {
+								a.notice = "超时为 1–3600 秒"
+								return
+							}
+							r.TimeoutSeconds = n
+							a.persist()
+						})
 					})
+					ui.Checkbox(c.Key("redirect"), &r.FollowRedirects, "跟随重定向（最多 10 次）").OnChange(a.persist)
+					ui.Text(c, "校验 TLS 证书 · 代理在「环境与全局请求头」中设置\n流连接的超时仅限制建立连接阶段，可随时停止。").TextColor(t.TextMuted).FontSize(12)
 				})
-				ui.Checkbox(c.Key("redirect"), &r.FollowRedirects, "跟随重定向（最多 10 次）").OnChange(a.persist)
-				ui.Text(c, "校验 TLS 证书 · 代理在「环境与全局请求头」中设置\n流连接的超时仅限制建立连接阶段，可随时停止。").TextColor(t.TextMuted).FontSize(12)
 			case 4:
 				a.queryView(c)
 			case 5:
@@ -327,10 +410,32 @@ func (a *application) requestView(c *ui.Context) {
 func (a *application) responseView(c *ui.Context) {
 	t := c.Theme()
 	services := c.Services()
+	statusColor := t.TextMuted
+	if code, ok := parseStatusPrefix(a.status); ok {
+		switch {
+		case code >= 200 && code < 300:
+			statusColor = t.Success
+		case code >= 300 && code < 400:
+			statusColor = t.Accent
+		case code >= 400 && code < 500:
+			statusColor = t.Warning
+		case code >= 500:
+			statusColor = t.Danger
+		}
+	} else if a.status == "请求失败" || a.status == "已停止" {
+		statusColor = t.Danger
+	}
 	ui.Column(c).Fill().Padding(10, 0, 0, 0).Gap(10).Children(func() {
-		ui.Row(c).Gap(12).Children(func() {
+		ui.Row(c).Gap(12).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, "响应").Bold().FontSize(15)
-			ui.Text(c, a.status).TextColor(t.Accent).FontSize(12).Grow(1)
+			if a.status != "" && a.status != "准备就绪" {
+				ui.Box(c).Padding(3, 10).Radius(999).Background(t.SurfaceHover).Children(func() {
+					ui.Text(c, a.status).TextColor(statusColor).FontSize(11).Bold()
+				})
+			} else {
+				ui.Text(c, a.status).TextColor(statusColor).FontSize(12)
+			}
+			ui.Spacer(c)
 			ui.Button(c.Key("copy-response"), "复制响应").OnClick(func() { services.WriteClipboard(a.responseText()); a.toast = "响应已复制" })
 		})
 		ui.Tabs(c.Key("response-tabs"), &a.responseTab, "内容 / 消息", "响应头", "断言结果")
@@ -384,7 +489,7 @@ func (a *application) settingsView(c *ui.Context) {
 			ui.TextArea(c.Key("global-headers"), &a.globalHeaders).Grow(1).FillWidth().Font("monospace").Placeholder("Accept: application/json\nAuthorization: Bearer {{token}}")
 		}).Grow(1)
 		ui.Field(c, "CA 证书", func() {
-			ui.Column(c).FillWidth().Gap(8).Children(func() {
+			ui.Column(c).FillWidth().Gap(8).Padding(10).Radius(t.Radius).Background(t.Surface).Children(func() {
 				ui.TextArea(c.Key("ca-cert"), &a.caCertPEM).FillWidth().Height(90).Font("monospace").Label("CA 证书内容").Placeholder("-----BEGIN CERTIFICATE-----\n…\n-----END CERTIFICATE-----")
 				ui.Row(c).Gap(8).Children(func() {
 					ui.Button(c.Key("import-ca"), "导入证书文件").Disabled(a.importingCA).OnClick(a.chooseCACertificates)
@@ -393,7 +498,7 @@ func (a *application) settingsView(c *ui.Context) {
 			})
 		}).Description("追加到系统信任库，用于 HTTPS、SSE 和 WSS。留空使用系统证书，保存配置后生效。")
 		ui.Field(c, "代理", func() {
-			ui.Row(c).FillWidth().Gap(8).Children(func() {
+			ui.Row(c).FillWidth().Gap(8).Padding(10).Radius(t.Radius).Background(t.Surface).Children(func() {
 				ui.TextInput(c.Key("proxy-url"), &a.proxyURL).Grow(1).Label("代理地址").Placeholder("http://127.0.0.1:8888 或 socks5://…")
 				ui.TextInput(c.Key("proxy-bypass"), &a.proxyBypass).Grow(1).Label("不使用代理的地址").Placeholder("internal.example.com, .corp")
 			})
@@ -420,10 +525,15 @@ func (a *application) importView(c *ui.Context) {
 		ui.Text(c, "不执行脚本，不读取 @file").FontSize(11).TextColor(t.TextMuted)
 	})
 	ui.Divider(c)
-	ui.Text(c, "导入集合 · 先预览再加入收藏").Bold()
-	ui.Row(c).Gap(12).Children(func() {
-		ui.Button(c.Key("import-curlgo"), "导入 CurlGo 集合").Disabled(a.importingCollection).OnClick(func() { a.chooseCollection(collectionCurlGo) })
-		ui.Button(c.Key("import-postman"), "导入 Postman 集合").Disabled(a.importingCollection).OnClick(func() { a.chooseCollection(collectionPostman) })
-		ui.Button(c.Key("import-bruno"), "导入 Bruno 集合").Disabled(a.importingCollection).OnClick(func() { a.chooseCollection(collectionBruno) })
+	ui.Column(c).FillWidth().Gap(10).Padding(12).Radius(t.Radius).Background(t.Surface).Children(func() {
+		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, "导入集合").Bold().FontSize(14)
+			ui.Text(c, "先预览再加入收藏").TextColor(t.TextMuted).FontSize(11)
+		})
+		ui.Row(c).Gap(8).Children(func() {
+			ui.Button(c.Key("import-curlgo"), "CurlGo 集合").Disabled(a.importingCollection).OnClick(func() { a.chooseCollection(collectionCurlGo) })
+			ui.Button(c.Key("import-postman"), "Postman 集合").Disabled(a.importingCollection).OnClick(func() { a.chooseCollection(collectionPostman) })
+			ui.Button(c.Key("import-bruno"), "Bruno 集合").Disabled(a.importingCollection).OnClick(func() { a.chooseCollection(collectionBruno) })
+		})
 	})
 }

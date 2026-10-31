@@ -52,7 +52,7 @@ func (a *application) authView(c *ui.Context) {
 		return
 	}
 	ui.Scroll(c.Key("auth-fields")).Grow(1).MinHeight(0).Children(func() {
-		ui.Column(c).FillWidth().Gap(8).Disabled(a.busy).Children(func() {
+		ui.Column(c).FillWidth().Gap(8).Padding(12).Radius(t.Radius).Background(t.Surface).Disabled(a.busy).Children(func() {
 			switch auth.Mode {
 			case core.AuthBearer:
 				a.credentialInput(c.Key("bearer-token"), &auth.Token, "Bearer Token 值", "Token 或 {{token}}")
@@ -67,7 +67,7 @@ func (a *application) authView(c *ui.Context) {
 				if auth.Location == core.APIKeyQuery {
 					location = 1
 				}
-				ui.Row(c).Gap(10).Children(func() {
+				ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
 					ui.Text(c, "添加到").TextColor(t.TextMuted)
 					ui.Segmented(c.Key("api-location"), &location, "Header", "Query").Width(180).OnChange(func() {
 						auth.Location = core.APIKeyHeader

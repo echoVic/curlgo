@@ -203,7 +203,7 @@ func TestAssertionViewAtMinimumWindow(t *testing.T) {
 			a.selectRequest(appDraft(server.URL))
 			tt := ui.NewTester(a.view, 940, 680)
 			clickUI(t, tt, "断言")
-			clickUI(t, tt, "添加断言")
+			clickUI(t, tt, "＋ 添加断言")
 			inputUI(t, tt, "断言名称 1", "成功")
 			inputUI(t, tt, "断言期望值 1", "200")
 			for _, label := range []string{"断言名称 1", "断言来源 1", "断言操作 1", "断言期望值 1", "验证当前响应"} {

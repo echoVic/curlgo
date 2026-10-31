@@ -77,31 +77,38 @@ func (a *application) removeQueryParam(id string) {
 }
 
 func (a *application) queryView(c *ui.Context) {
+	t := c.Theme()
 	r := &a.workspace.Draft
-	ui.Text(c, "与地址实时同步 · 支持重复键、空值和 {{变量}}").FontSize(11).TextColor(c.Theme().TextMuted)
+	ui.Text(c, "与地址实时同步 · 支持重复键、空值和 {{变量}}").FontSize(11).TextColor(t.TextMuted)
 	if a.queryError != nil {
-		ui.Text(c, a.queryError.Error()).FontSize(12).TextColor(c.Theme().TextMuted)
+		ui.Text(c, a.queryError.Error()).FontSize(12).TextColor(t.Danger)
 	}
 	ui.Scroll(c.Key("query-params")).Grow(1).MinHeight(0).Children(func() {
-		ui.Column(c).FillWidth().Gap(8).Children(func() {
+		ui.Column(c).FillWidth().Gap(4).Children(func() {
 			if len(r.QueryParams) == 0 && a.queryError == nil {
-				ui.Text(c, "添加参数，或在请求地址中输入 ?key=value。").FontSize(12).TextColor(c.Theme().TextMuted)
+				ui.Text(c, "添加参数，或在请求地址中输入 ?key=value。").FontSize(12).TextColor(t.TextMuted)
 			}
 			for i := range r.QueryParams {
 				p := &r.QueryParams[i]
 				id, number := p.ID, strconv.Itoa(i+1)
 				enabled := !p.Disabled
-				ui.Row(c.Key(id)).Gap(8).Disabled(a.busy || a.queryError != nil).Children(func() {
-					ui.Checkbox(c.Key("enabled"), &enabled, "").Label("启用参数 " + number).OnChange(func() {
-						p.Disabled = !enabled
-						a.queryParamsChanged()
+				opacity := float32(1)
+				if p.Disabled {
+					opacity = 0.5
+				}
+				ui.Column(c.Key(id)).FillWidth().Padding(4).Radius(t.Radius).Background(t.Surface).Opacity(opacity).Disabled(a.busy || a.queryError != nil).Children(func() {
+					ui.Row(c).Gap(8).Children(func() {
+						ui.Checkbox(c.Key("enabled"), &enabled, "").Label("启用参数 " + number).OnChange(func() {
+							p.Disabled = !enabled
+							a.queryParamsChanged()
+						})
+						ui.TextInput(c.Key("key"), &p.Key).Grow(1).MinWidth(100).Label("参数名称 " + number).Placeholder("参数名称").OnChange(a.queryParamsChanged)
+						ui.TextInput(c.Key("value"), &p.Value).Grow(2).MinWidth(120).Label("参数值 " + number).Placeholder("值或 {{变量}}").OnChange(a.queryParamsChanged)
+						ui.Button(c.Key("remove"), "移除").Label("移除参数 " + number).OnClick(func() { a.removeQueryParam(id) })
 					})
-					ui.TextInput(c.Key("key"), &p.Key).Grow(1).MinWidth(100).Label("参数名称 " + number).Placeholder("参数名称").OnChange(a.queryParamsChanged)
-					ui.TextInput(c.Key("value"), &p.Value).Grow(2).MinWidth(120).Label("参数值 " + number).Placeholder("值或 {{变量}}").OnChange(a.queryParamsChanged)
-					ui.Button(c.Key("remove"), "移除").Label("移除参数 " + number).OnClick(func() { a.removeQueryParam(id) })
 				})
 			}
 		})
 	})
-	ui.Button(c.Key("add-query"), "添加参数").Disabled(a.busy || a.queryError != nil).OnClick(a.addQueryParam)
+	ui.Button(c.Key("add-query"), "＋ 添加参数").Disabled(a.busy || a.queryError != nil).OnClick(a.addQueryParam)
 }

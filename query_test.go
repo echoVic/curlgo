@@ -113,14 +113,14 @@ func TestQueryView(t *testing.T) {
 	clickUI(t, tt, "参数")
 	clickUI(t, tt, "启用参数 2")
 	inputUI(t, tt, "参数值 1", "{{value}}")
-	clickUI(t, tt, "添加参数")
+	clickUI(t, tt, "＋ 添加参数")
 	inputUI(t, tt, "参数名称 4", "中文")
 	inputUI(t, tt, "参数值 4", "a +&")
 	want := srv.URL + "?tag={{value}}&flag&%E4%B8%AD%E6%96%87=a+%2B%26#anchor"
 	if a.workspace.Draft.URL != want {
 		t.Fatalf("参数表没有实时更新 URL：%q", a.workspace.Draft.URL)
 	}
-	for _, label := range []string{"参数名称 1", "参数值 1", "添加参数"} {
+	for _, label := range []string{"参数名称 1", "参数值 1", "＋ 添加参数"} {
 		r, ok := tt.Find(label)
 		if !ok || r.W < 40 || r.Y+r.H > 680 || r.X+r.W > 940 {
 			t.Fatalf("最小窗口参数编辑区不可用 %s：%+v", label, r)

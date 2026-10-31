@@ -154,7 +154,7 @@ func TestApplicationView(t *testing.T) {
 	t.Run("初始布局名称地址输入与新建", func(t *testing.T) {
 		a, _ := testApp(t)
 		tt := ui.NewTester(a.view, 1200, 820)
-		for _, text := range []string{"CurlGo", ">", "贴入请求，马上开始"} {
+		for _, text := range []string{"CurlGo", "›", "贴入请求，马上开始"} {
 			if !tt.HasText(text) {
 				t.Fatalf("初始界面未显示品牌文本 %q", text)
 			}
@@ -235,17 +235,10 @@ func TestApplicationView(t *testing.T) {
 		a.workspace.History = []core.History{{Request: appDraft("https://example.test/history"), At: time.Date(2024, 1, 1, 12, 30, 0, 0, time.UTC)}}
 		clickUI(t, tt, "历史")
 		tt.Frame()
-		var historyLabel string
-		for _, label := range tt.Texts() {
-			if strings.HasPrefix(label, "12:30  GET") {
-				historyLabel = label
-				break
-			}
-		}
-		if historyLabel == "" {
+		if !tt.HasText("12:30") || !tt.HasText("GET") {
 			t.Fatal("未显示历史项")
 		}
-		clickUI(t, tt, historyLabel)
+		clickUI(t, tt, "打开 https://example.test/history")
 		if a.workspace.Draft.URL != "https://example.test/history" {
 			t.Fatal("历史未恢复草稿")
 		}

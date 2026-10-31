@@ -137,24 +137,29 @@ func (a *application) secretsView(c *ui.Context) {
 	}
 	sort.Strings(environments)
 	unlocked := a.secrets != nil && a.secrets.Unlocked()
-	ui.Row(c).Gap(10).Children(func() {
+	ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
 		ui.Text(c, "环境").TextColor(t.TextMuted)
 		ui.Select(c.Key("secret-environment"), &a.workspace.Settings.Environment, environments).Width(180).
 			Label("机密变量环境").Disabled(a.secretBusy).OnChange(func() { a.clearSecretEditor(); a.persist() })
 		ui.Spacer(c)
 		if unlocked {
-			ui.Text(c, "已解锁").TextColor(t.Accent)
+			ui.Box(c).Padding(4, 10).Radius(999).Background(t.SurfaceHover).Children(func() {
+				ui.Row(c).Gap(5).AlignItems(ui.Center).Children(func() {
+					ui.Box(c).Size(6, 6).Radius(999).Background(t.Success)
+					ui.Text(c, "已解锁").TextColor(t.Success).FontSize(11)
+				})
+			})
 			ui.Button(c.Key("lock-secrets"), "锁定").Label("锁定机密变量").OnClick(a.lockSecrets)
 		} else {
 			label := "解锁"
 			if a.secretBusy {
 				label = "正在解锁…"
 			}
-			ui.Button(c.Key("unlock-secrets"), label).Disabled(a.secrets == nil || a.secretBusy || a.readOnly).OnClick(a.unlockSecrets)
+			ui.PrimaryButton(c.Key("unlock-secrets"), label).Disabled(a.secrets == nil || a.secretBusy || a.readOnly).OnClick(a.unlockSecrets)
 		}
 	})
 	if a.secretNotice != "" {
-		ui.Text(c, a.secretNotice).TextColor(t.TextMuted).FontSize(12).FillWidth()
+		ui.Text(c, a.secretNotice).TextColor(t.Danger).FontSize(12).FillWidth()
 	}
 	if !unlocked {
 		ui.Column(c).Grow(1).FillWidth().Center().Gap(10).Children(func() {
@@ -163,7 +168,7 @@ func (a *application) secretsView(c *ui.Context) {
 		})
 		return
 	}
-	ui.Column(c).FillWidth().Gap(8).Children(func() {
+	ui.Column(c).FillWidth().Gap(8).Padding(12).Radius(t.Radius).Background(t.Surface).Children(func() {
 		ui.Row(c).Gap(10).Children(func() {
 			editorID := strconv.FormatUint(a.secretEditorGeneration, 10)
 			ui.TextInput(c.Key("secret-name-"+editorID), &a.secretName).Width(200).Label("机密变量名称").Placeholder("token（不含 secret.）")
@@ -194,14 +199,14 @@ func (a *application) secretsView(c *ui.Context) {
 			names = append(names, name)
 		}
 		sort.Strings(names)
-		ui.Column(c).FillWidth().Gap(8).Children(func() {
+		ui.Column(c).FillWidth().Gap(6).Children(func() {
 			if len(names) == 0 {
 				ui.Text(c, "当前环境还没有机密变量。").TextColor(t.TextMuted)
 			}
 			for _, name := range names {
-				ui.Row(c.Key(name)).FillWidth().Gap(10).Children(func() {
-					ui.Text(c, "{{secret."+name+"}}").Grow(1)
-					ui.Text(c, "••••••••").TextColor(t.TextMuted)
+				ui.Row(c.Key(name)).FillWidth().Gap(10).Padding(8, 12).Radius(t.Radius).Background(t.Surface).Children(func() {
+					ui.Text(c, "{{secret."+name+"}}").Grow(1).Font("monospace")
+					ui.Text(c, "••••••••").TextColor(t.TextMuted).FontSize(11)
 					ui.Button(c.Key("edit"), "编辑").Label("编辑机密 " + name).OnClick(func() {
 						a.clearSecretEditor()
 						a.secretName = name
