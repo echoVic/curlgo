@@ -5,6 +5,13 @@
   "version": "0.1.0",
   "icon": "assets/icon.png",
   "resources": [
+    "LICENSE",
     "THIRD_PARTY_NOTICES.txt"
-  ]
+  ],
+  "macos": {
+    "signingIdentity": "Developer ID Application: Zijie Hu (8LH7PFQJ89)",
+    "notarize": {
+      "keychainProfile": "clipnest-notary"
+    }
+  }
 }

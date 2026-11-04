@@ -3,3 +3,12 @@
 /flux/
 *.test
 .DS_Store
+/curlgo
+/.trae-html-share-packages/
+/design-mockup.html
+/test-report.html
+/docs/native-qa/
+/docs/2026-11-03-*.md
+/marketing/video/node_modules/
+/marketing/video/out/
+/marketing/video/.cache/

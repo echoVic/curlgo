@@ -1,0 +1,15 @@
+# Changelog
+
+## 0.1.0 - 2026-11-04
+
+First public release of CurlGo, a local native API client.
+
+- Send HTTP/HTTPS requests, receive SSE events, and exchange WebSocket messages.
+- Import curl text, Postman Collection v2.1, Bruno collections, and CurlGo collections; preview imports before saving. Collection scripts are not executed.
+- Configure environments, Bearer/Basic/API Key authentication, explicit proxies, private CAs, and multipart uploads.
+- Check declarative response assertions and extract values for subsequent requests.
+- Keep drafts, favorites, history, and Cookies locally. Store explicitly configured secret variables in an encrypted vault with its master key in the macOS Keychain.
+- Run individual HTTP requests through the JSON CLI, with help and a local dry-run mode. Install the optional `api-test` agent skill yourself.
+- Distribute a Developer ID signed and notarized macOS Apple Silicon DMG.
+
+The first binary release targets macOS Apple Silicon. It does not include team collaboration, collection script execution, a collection runner, or automatic updates. Ordinary workspace values remain plaintext; the encrypted vault only protects values explicitly saved as secrets.

@@ -1,10 +1,26 @@
 # CurlGo
 
-轻量离线 API 客户端，基于 MyGo 0.7.1 原生 UI。打开即用，无需账户或先建项目，应用自身不连接云端服务。
+**你的 API 工具，由你做主。**
+
+轻量离线 API 客户端，基于 MyGo 0.7.1 原生 UI。打开即用，无需账户或先建项目，应用自身不连接云端服务。HTTP、SSE、WebSocket，以及可选的 CLI 与 Agent Skill。
+
+[下载 v0.1.0 · macOS Apple Silicon](https://github.com/echoVic/curlgo/releases/tag/v0.1.0) · [版本记录](CHANGELOG.md) · [MIT 许可证](LICENSE)
+
+![CurlGo 原生界面](docs/images/curlgo-light.png)
+
+[观看 70 秒产品介绍](https://github.com/echoVic/curlgo/releases/download/v0.1.0/curlgo-0.1.0-launch.mp4) · [Remotion 视频源码与渲染方法](marketing/video/README.md)
+
+## 下载与开始使用
+
+首个安装包面向 macOS Apple Silicon（M 系列芯片）。从 Release 下载 DMG，打开后将 CurlGo 拖入 Applications。安装包使用 Developer ID 签名并经过 Apple 公证，校验和随 Release 提供。其他平台当前提供源码。
+
+打开后粘贴 curl，或点击「导入 curl / 集合」导入 Postman v2.1 / Bruno 集合；先查看预览，再加入收藏。集合中的脚本不会执行，依赖脚本的工作流需要另行迁移。
+
+桌面端不自动安装 agent 技能、插件或 MCP，不修改 Codex、Claude Code、Copilot 配置。技能接入由用户主动选择。
 
 ## 可以做什么
 
-- HTTP / HTTPS 请求：方法、URL、可编辑查询参数、请求头、原始正文与 multipart 文件上传；响应头、耗时、取消与超时，JSON / XML / HTML / CSS 响应格式化。
+- HTTP / HTTPS 请求：方法、URL、可编辑查询参数、请求头、原始正文与 multipart 文件上传；响应头、耗时、取消与超时，JSON / XML 响应格式化，HTML / CSS 语法高亮。
 - SSE：支持 GET / POST，持续接收事件、多行 data、event / id，随时停止。
 - WebSocket：ws / wss、握手请求头、文本双向消息、二进制消息的 base64 展示。
 - Cookie：GUI 共享并持久化 Cookie Jar，重启后恢复，遵循域名、路径、Secure、过期及公共后缀规则；查看当前地址适用值或清空。CLI 跨调用共享需显式指定 Cookie 文件。
@@ -28,19 +44,34 @@ CGO_ENABLED=0 go build -o /tmp/curlgo-api-test .
 
 通用 Agent Skill 源码位于 [skills/api-test/](skills/api-test/SKILL.md)，作为 CurlGo 的项目能力随版本维护；`references/` 随技能包含断言、响应提取和机密变量文档。维护这些文档时，同步更新 `docs/` 与对应的 `skills/api-test/references/` 副本。
 
+以下命令由用户主动执行第三方 skills CLI。它会添加技能文件或链接；先在交互界面确认目标 agent、安装范围与路径，再完成安装。桌面端不会执行这些命令，也不会自动注册启动 hook 或批准信任。
+
 在仓库根目录可安装到 Claude Code 与 Codex：
 
 ```sh
 npx skills add ./skills/api-test -a claude-code -a codex
 ```
 
-发布到公开 GitHub 仓库后，用户可通过 skills.sh 的 CLI 安装：
+也可直接从公开 GitHub 仓库安装：
 
 ```sh
 npx skills add echoVic/curlgo --skill api-test -a claude-code -a codex
 ```
 
 技能安装分发操作规范及参考文档，运行仍需要已安装的 CurlGo 可执行文件，或 Go 1.27.3 与 CurlGo 源码。源码构建命令须在 CurlGo 仓库根目录执行。
+
+安装、查看安装范围和移除方法见[可选技能说明](docs/agent-skill.md)。卸载桌面应用不会移除你另外安装的技能。
+
+技能入口按任务选择参考文档；[请求与登录链示例](skills/api-test/references/workflows.md)提供 JSON 正文序列化、查询编码、私有令牌串联和文件响应读取的可运行代码。`request.body` 是字符串，变量替换不会做 JSON 转义；CLI 查询参数以 `request.url` 为准，`request.queryParams` 只用于编辑器元数据。
+
+维护者可在仓库根目录复跑真实 CLI 场景。脚本使用 Python 标准库启动临时本地 HTTP 服务，验证登录、Cookie、上传字节、大响应、失败诊断，并直接执行技能文档中的 Python 例子。临时文件自动清理；TLS 场景需要系统 `openssl`，缺失时明确跳过：
+
+```sh
+CGO_ENABLED=0 go build -o /tmp/curlgo-api-test .
+python3 scripts/test_api_skill.py --binary /tmp/curlgo-api-test
+```
+
+加 `--public` 可额外执行 JSONPlaceholder 与 GitHub 的匿名 GET；公网失败或限流会报告实际状态并让脚本退出非零，不计为通过。
 
 ### JSON 帮助
 
@@ -210,7 +241,7 @@ GUI 的 macOS 数据保存在 `~/Library/Application Support/QingzhouAPI/`；其
 - HTTP 超时限制整次请求；SSE / WebSocket 超时限制连接建立阶段。SSE 首版不自动重连，避免重复提交 POST。
 - curl 支持常用 `--request`、`--header`、`--data`、`--data-raw`、`--data-binary`、`--json`、`--user`、`--cookie`、`--oauth2-bearer`、`--url`、`--location`、`--head`、`--max-time` 和文本 `--form-string`。不执行命令、不展开系统变量、不读隐式 `@file`；`-F` / `--form`、`--data-urlencode` 和未知参数明确拒绝。上传文件需在 GUI 选择，或使用获授权的 CLI JSON multipart 绝对路径。
 - 不包括团队协作、插件、GraphQL 专用面板、gRPC 或脚本执行。
-- Mac 为首要平台。Linux 内存渲染和协议测试不代表已完成 Mac 真机验收；启动耗时、常驻内存与签名需真机验证。
+- Mac 为首要平台。首版提供 macOS Apple Silicon 安装包。冷启动、长期资源表现、干净用户账户安装、升级和其他平台的原生运行仍需进一步验证。
 
 ## 开发
 
@@ -220,8 +251,10 @@ GUI 的 macOS 数据保存在 `~/Library/Application Support/QingzhouAPI/`；其
 CGO_ENABLED=0 go run .
 CGO_ENABLED=0 go test -p=2 -parallel=2 ./...
 go tool mygo vet .
-go tool mygo build -platform darwin/arm64 -skip-dmg
+go tool mygo build -platform darwin/arm64 -sign - -skip-notarize -skip-dmg
 ```
+
+上述打包命令使用临时签名，适合本机开发。分发构建使用 `mygo.json` 中的签名身份与公证 profile 引用，构建机器需要自行配置对应证书和钥匙串凭据。仓库不包含私钥或公证凭据。
 
 开发用的原生渲染可通过 `-render <file.png>` 和可选 `-dark` 参数生成，不读取用户数据、不发送网络请求。
 
