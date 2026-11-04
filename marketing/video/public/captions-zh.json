@@ -1,0 +1,198 @@
+[
+  {
+    "text": "调试接口的时候",
+    "startMs": 800,
+    "endMs": 2185,
+    "timestampMs": 800,
+    "confidence": null
+  },
+  {
+    "text": "我们真正想做的，其实很简单",
+    "startMs": 2250,
+    "endMs": 4735,
+    "timestampMs": 2250,
+    "confidence": null
+  },
+  {
+    "text": "发出请求，看看响应",
+    "startMs": 4938,
+    "endMs": 7148,
+    "timestampMs": 4938,
+    "confidence": null
+  },
+  {
+    "text": "再确认结果对不对",
+    "startMs": 7262,
+    "endMs": 8598,
+    "timestampMs": 7262,
+    "confidence": null
+  },
+  {
+    "text": "CurlGo 把这件事",
+    "startMs": 9012,
+    "endMs": 10598,
+    "timestampMs": 9012,
+    "confidence": null
+  },
+  {
+    "text": "放进一个轻量的原生工作区",
+    "startMs": 10625,
+    "endMs": 12810,
+    "timestampMs": 10625,
+    "confidence": null
+  },
+  {
+    "text": "打开以后，粘贴地址",
+    "startMs": 13225,
+    "endMs": 15372,
+    "timestampMs": 13225,
+    "confidence": null
+  },
+  {
+    "text": "或者导入已有的请求，就可以开始",
+    "startMs": 15412,
+    "endMs": 17972,
+    "timestampMs": 15412,
+    "confidence": null
+  },
+  {
+    "text": "无需注册账号",
+    "startMs": 18388,
+    "endMs": 19698,
+    "timestampMs": 18388,
+    "confidence": null
+  },
+  {
+    "text": "草稿、收藏和历史，都保存在本机",
+    "startMs": 19812,
+    "endMs": 23135,
+    "timestampMs": 19812,
+    "confidence": null
+  },
+  {
+    "text": "比如这次健康检查",
+    "startMs": 23550,
+    "endMs": 25272,
+    "timestampMs": 23550,
+    "confidence": null
+  },
+  {
+    "text": "请求发出后，先看状态码",
+    "startMs": 25400,
+    "endMs": 27935,
+    "timestampMs": 25400,
+    "confidence": null
+  },
+  {
+    "text": "再读返回的数据",
+    "startMs": 28012,
+    "endMs": 29385,
+    "timestampMs": 28012,
+    "confidence": null
+  },
+  {
+    "text": "收到 200，并不代表业务一定成功",
+    "startMs": 29800,
+    "endMs": 32885,
+    "timestampMs": 29800,
+    "confidence": null
+  },
+  {
+    "text": "我们还可以加上断言",
+    "startMs": 33300,
+    "endMs": 34735,
+    "timestampMs": 33300,
+    "confidence": null
+  },
+  {
+    "text": "检查关键字段",
+    "startMs": 34788,
+    "endMs": 36172,
+    "timestampMs": 34788,
+    "confidence": null
+  },
+  {
+    "text": "验证通过，再提取变量",
+    "startMs": 36412,
+    "endMs": 38660,
+    "timestampMs": 36412,
+    "confidence": null
+  },
+  {
+    "text": "接着跑下一条请求",
+    "startMs": 38738,
+    "endMs": 40248,
+    "timestampMs": 38738,
+    "confidence": null
+  },
+  {
+    "text": "普通接口之外",
+    "startMs": 40662,
+    "endMs": 41898,
+    "timestampMs": 40662,
+    "confidence": null
+  },
+  {
+    "text": "SSE 事件流和 WebSocket，也能在这里调试",
+    "startMs": 42150,
+    "endMs": 45272,
+    "timestampMs": 42150,
+    "confidence": null
+  },
+  {
+    "text": "如果你想让人工智能帮忙",
+    "startMs": 45688,
+    "endMs": 47688,
+    "timestampMs": 45688,
+    "confidence": null
+  },
+  {
+    "text": "可以主动安装 API Test Skill",
+    "startMs": 47688,
+    "endMs": 49685,
+    "timestampMs": 47688,
+    "confidence": null
+  },
+  {
+    "text": "让它通过命令行调用 CurlGo",
+    "startMs": 49825,
+    "endMs": 52222,
+    "timestampMs": 49825,
+    "confidence": null
+  },
+  {
+    "text": "先在本地预检，确认配置",
+    "startMs": 52612,
+    "endMs": 55248,
+    "timestampMs": 52612,
+    "confidence": null
+  },
+  {
+    "text": "再决定是否发送",
+    "startMs": 55262,
+    "endMs": 56735,
+    "timestampMs": 55262,
+    "confidence": null
+  },
+  {
+    "text": "工具怎么接入，由你选择",
+    "startMs": 57150,
+    "endMs": 59548,
+    "timestampMs": 57150,
+    "confidence": null
+  },
+  {
+    "text": "CurlGo 已经开源",
+    "startMs": 59962,
+    "endMs": 61660,
+    "timestampMs": 59962,
+    "confidence": null
+  },
+  {
+    "text": "下载后，从你手边的一条请求开始",
+    "startMs": 62075,
+    "endMs": 65248,
+    "timestampMs": 62075,
+    "confidence": null
+  }
+]

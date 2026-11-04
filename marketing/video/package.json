@@ -1,7 +1,7 @@
 {
   "name": "curlgo-launch-video",
   "version": "0.1.0",
-  "description": "CurlGo first-release product film",
+  "description": "CurlGo continuous-workspace product film with natural Chinese narration",
   "repository": "https://github.com/echoVic/curlgo",
   "license": "MIT",
   "engines": {
@@ -26,10 +26,11 @@
   },
   "scripts": {
     "dev": "remotion studio --no-open",
-    "render": "remotion render src/index.ts CurlGoLaunch out/curlgo-0.1.0-launch.mp4 --codec h264 --crf 18 --pixel-format yuv420p",
+    "render": "remotion render src/index.ts CurlGoRoundtrip out/curlgo-roundtrip-zh.mp4 --codec h264 --crf 18 --pixel-format yuv420p",
     "build": "remotion bundle",
     "upgrade": "remotion upgrade",
-    "lint": "eslint src && tsc"
+    "lint": "eslint src && tsc",
+    "package-video": "python3 scripts/package_delivery.py"
   },
   "allowScripts": {
     "esbuild": false

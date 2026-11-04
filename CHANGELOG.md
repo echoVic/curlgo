@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.1 - 2026-11-04
+
+- Add an application settings page with the current version, appearance, a manual update check, and preferences for background checks and automatic downloads.
+- Add native update notifications with release notes and install/relaunch actions. Updates are verified with a dedicated Ed25519 public key before installation. Background checks run every four hours; automatic downloads are off by default.
+- Introduce the original double-loop CurlGo logo and desktop icon.
+- Refresh the product walkthrough with Chinese narration and an original soundtrack.
+
+Users of 0.1.0 must install 0.1.1 from the DMG once: 0.1.0 did not include an updater. Future signed releases can be installed through the new updater. The desktop app does not install agent skills or modify coding-agent configuration.
+
 ## 0.1.0 - 2026-11-04
 
 First public release of CurlGo, a local native API client.

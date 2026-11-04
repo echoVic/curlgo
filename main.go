@@ -30,10 +30,18 @@ func main() {
 		os.Exit(int(exit))
 	}
 	preview := flag.String("render", "", "渲染原生界面至 PNG")
+	previewPage := flag.Int("render-page", 0, "预览页面：0 请求、1 环境、7 应用设置")
+	previewWidth := flag.Int("render-width", 1200, "预览宽度（至少 940）")
+	previewHeight := flag.Int("render-height", 820, "预览高度（至少 680）")
 	dark := flag.Bool("dark", false, "使用深色主题")
 	flag.Parse()
 	if *preview != "" {
+		if (*previewPage != 0 && *previewPage != 1 && *previewPage != 7) || *previewWidth < 940 || *previewHeight < 680 {
+			log.Fatal("预览支持页面 0、1、7，尺寸至少为 940 × 680")
+		}
 		a := newApplication(core.NewWorkspace())
+		defer a.engine.Close()
+		a.page = *previewPage
 		a.workspace.Draft.URL = "{{base_url}}/api/health"
 		a.workspace.Draft.Name = "服务健康检查"
 		a.workspace.Requests = []core.Request{a.workspace.Draft}
@@ -44,7 +52,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = png.Encode(f, ui.Render(a.view, 1200, 820, 1))
+		err = png.Encode(f, ui.Render(a.view, *previewWidth, *previewHeight, 1))
 		_ = f.Close()
 		if err != nil {
 			log.Fatal(err)
@@ -55,6 +63,7 @@ func main() {
 	if !mygo.App.RequestSingleInstanceLock() {
 		return
 	}
+	configureNativeUpdater()
 	mygo.App.WhenReady(func() {
 		dir, err := os.UserConfigDir()
 		if err != nil {
@@ -87,6 +96,29 @@ func main() {
 		a.win = mygo.NewWindow(mygo.WindowOptions{Title: "CurlGo", Width: 1200, Height: 820, MinWidth: 940, MinHeight: 680, Content: ui.View(a.view)})
 		a.updates = a.win.Update
 		a.closeNative = a.win.Close
+		a.attachUpdater(nativeUpdateBackend{})
+		mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
+			{Label: "CurlGo", Submenu: []*mygo.MenuItem{
+				{Role: mygo.RoleAbout},
+				updaterMenuItem(),
+				mygo.Separator(),
+				{Label: "设置…", Accelerator: "CmdOrCtrl+,", Click: func(*mygo.MenuItem, *mygo.Window) {
+					if a.closed || a.closing {
+						return
+					}
+					a.win.Update(func() {
+						if !a.closed && !a.closing {
+							a.page = 7
+							a.notice = ""
+						}
+					})
+				}},
+				mygo.Separator(),
+				{Role: mygo.RoleQuit},
+			}},
+			{Role: mygo.RoleEditMenu},
+			{Role: mygo.RoleWindowMenu},
+		}))
 		mygo.App.OnSecondInstance(func(_ []string, _ string) {
 			if !a.closed {
 				a.win.Show()
@@ -94,9 +126,12 @@ func main() {
 			}
 		})
 		a.startSaving()
+		offBeforeQuit := mygo.App.OnBeforeQuit(a.beforeQuit)
 		a.win.OnClose(a.closeWindow)
 		a.win.OnClosed(func() {
 			a.closed = true
+			offBeforeQuit()
+			a.detachUpdater()
 			a.lockSecrets()
 			a.stop()
 			close(a.saves)

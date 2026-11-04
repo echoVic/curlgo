@@ -74,9 +74,7 @@ func (a *application) view(c *ui.Context) {
 	}
 	ui.Column(c).Fill().Background(t.Background).Disabled(a.closing).Children(func() {
 		ui.Row(c).Height(58).Padding(14, 22).Gap(10).BorderWidth(0, 0, 1, 0).BorderColor(t.Border).Background(t.Surface).Children(func() {
-			ui.Box(c).Size(32, 32).Radius(10).Background(t.Accent).Center().Children(func() {
-				ui.Text(c, "›").FontSize(20).Bold().TextColor(t.AccentText)
-			})
+			ui.Image(c, brandIcon).Size(32, 32)
 			ui.Column(c).Gap(1).Children(func() {
 				ui.Text(c, "CurlGo").FontSize(16).Bold()
 				ui.Text(c, "贴入请求，马上开始").TextColor(t.TextMuted).FontSize(11)
@@ -85,7 +83,7 @@ func (a *application) view(c *ui.Context) {
 			ui.Box(c).Padding(4, 10).Radius(999).Background(t.SurfaceHover).Children(func() {
 				ui.Row(c).Gap(5).AlignItems(ui.Center).Children(func() {
 					ui.Box(c).Size(6, 6).Radius(999).Background(t.Success)
-					ui.Text(c, "本地离线").TextColor(t.TextMuted).FontSize(11)
+					ui.Text(c, "本地工作区").TextColor(t.TextMuted).FontSize(11)
 				})
 			})
 			ui.Select(c.Key("theme"), &a.workspace.Settings.Theme, []string{"浅色", "深色"}).Width(78).Label("主题").OnChange(a.persist)
@@ -105,6 +103,8 @@ func (a *application) view(c *ui.Context) {
 					a.collectionExportView(c)
 				} else if a.page == 6 {
 					a.secretsView(c)
+				} else if a.page == 7 {
+					a.appSettingsView(c)
 				} else {
 					a.requestView(c)
 				}
@@ -234,6 +234,7 @@ func (a *application) sidebar(c *ui.Context) {
 		ui.Divider(c)
 		ui.Button(c.Key("secrets"), "机密变量").FillWidth().OnClick(func() { a.page = 6; a.notice = "" })
 		ui.Button(c.Key("settings"), "环境与全局请求头").FillWidth().OnClick(func() { a.syncSettings(); a.page = 1; a.notice = "" })
+		ui.Button(c.Key("app-settings"), "设置").FillWidth().OnClick(func() { a.page = 7; a.notice = "" })
 		ui.Text(c, "不登录 · 不上传 · 随时离开").TextColor(t.TextMuted).FontSize(10)
 	})
 }

@@ -1,0 +1,95 @@
+{
+  "title": "CurlGo — 从一条请求开始",
+  "version": "0.1.1",
+  "composition": "CurlGoRoundtrip",
+  "durationSeconds": 69.0,
+  "width": 1920,
+  "height": 1080,
+  "fps": 30,
+  "frames": 2070,
+  "videoCodec": "h264",
+  "audioCodec": "aac",
+  "pixelFormat": "yuv420p",
+  "faststart": true,
+  "moovOffset": 32,
+  "mdatOffset": 76251,
+  "bytes": 22883764,
+  "sha256": "fe1cfa639d407e36229ecb54f38545fd4c4be53a8eb3abcc190d256c23773dcf",
+  "video": "curlgo-roundtrip-zh.mp4",
+  "poster": "curlgo-poster.jpg",
+  "posterFrameSeconds": 15.5,
+  "captions": "captions-zh.vtt",
+  "language": "zh-CN",
+  "captionCount": 28,
+  "narration": {
+    "voice": "zh-CN-YunxiNeural",
+    "rate": "+0%",
+    "pitch": "+0Hz",
+    "takeCount": 1,
+    "playbackRate": 1,
+    "timeStretch": false,
+    "duration": 65.3,
+    "boundarySource": "Edge TTS WordBoundary from this exact audio stream"
+  },
+  "posterSha256": "f9281baa84af4ae57884287d7edd205a2ff132a2276ba13b04a97cfcec268dc4",
+  "captionsSha256": "66ea263fd0d931921e345584bdb6367542f42b96894cd236189c1d922e2d3408",
+  "audioMeasured": {
+    "integratedLufs": -14.61,
+    "truePeakDbtp": -1.85,
+    "lra": 3.8
+  },
+  "validation": {
+    "webColorRange": "limited BT.709 yuv420p",
+    "audioCopyNoTimeChange": true,
+    "fullDecode": "passed",
+    "captionsOrderedNonoverlapping": true,
+    "naturalSpeechRate": true,
+    "faststartAtoms": "passed",
+    "renderedKeyStills": [
+      {
+        "seconds": 5.0,
+        "file": "out/key-opening.png"
+      },
+      {
+        "seconds": 15.5,
+        "file": "out/key-request.png"
+      },
+      {
+        "seconds": 29.5,
+        "file": "out/key-response.png"
+      },
+      {
+        "seconds": 34.5,
+        "file": "out/key-verify.png"
+      },
+      {
+        "seconds": 38.8,
+        "file": "out/key-extract.png"
+      },
+      {
+        "seconds": 48.0,
+        "file": "out/key-skill.png"
+      },
+      {
+        "seconds": 54.5,
+        "file": "out/key-preflight.png"
+      },
+      {
+        "seconds": 63.5,
+        "file": "out/key-closing.png"
+      },
+      {
+        "seconds": 68.4,
+        "file": "out/key-end.png"
+      }
+    ]
+  },
+  "website": {
+    "preload": "none",
+    "controls": true,
+    "playsInline": true,
+    "trackKind": "captions",
+    "trackLabel": "简体中文"
+  },
+  "claims": "Native workspace is real; response data and CLI interaction are labelled illustrations. Closing version is 0.1.1; no updater availability claim."
+}

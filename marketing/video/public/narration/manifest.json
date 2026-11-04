@@ -1,0 +1,74 @@
+{
+  "voice": "zh-CN-YunxiNeural",
+  "rate": "+0%",
+  "pitch": "+0Hz",
+  "takeCount": 1,
+  "playbackRate": 1,
+  "timeStretch": false,
+  "scriptSha256": "14f0d4e617a2e49368ecff69beb08b0e049127409ea2580dfef56078d5715d20",
+  "audio": "narration/continuous.m4a",
+  "from": 0.7,
+  "duration": 65.3,
+  "rawDuration": 65.28,
+  "end": 66.0,
+  "durationInFrames": 2070,
+  "fps": 30,
+  "durationSeconds": 69.0,
+  "boundarySource": "Edge TTS WordBoundary from this exact audio stream",
+  "wordCount": 154,
+  "captionCount": 28,
+  "beats": [
+    {
+      "id": "opening",
+      "seconds": 0.35
+    },
+    {
+      "id": "workspace",
+      "seconds": 8.562
+    },
+    {
+      "id": "request",
+      "seconds": 12.775
+    },
+    {
+      "id": "local",
+      "seconds": 17.938
+    },
+    {
+      "id": "send",
+      "seconds": 23.1
+    },
+    {
+      "id": "response",
+      "seconds": 27.562
+    },
+    {
+      "id": "verify",
+      "seconds": 32.85
+    },
+    {
+      "id": "extract",
+      "seconds": 35.962
+    },
+    {
+      "id": "protocols",
+      "seconds": 40.212
+    },
+    {
+      "id": "skill",
+      "seconds": 45.237
+    },
+    {
+      "id": "preflight",
+      "seconds": 52.162
+    },
+    {
+      "id": "choice",
+      "seconds": 56.7
+    },
+    {
+      "id": "closing",
+      "seconds": 59.512
+    }
+  ]
+}

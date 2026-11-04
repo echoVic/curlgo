@@ -1,14 +1,16 @@
 # CurlGo
 
+<img src="assets/brand/wordmark.svg" alt="CurlGo — 双向回路" width="276" />
+
 **你的 API 工具，由你做主。**
 
-轻量离线 API 客户端，基于 MyGo 0.7.1 原生 UI。打开即用，无需账户或先建项目，应用自身不连接云端服务。HTTP、SSE、WebSocket，以及可选的 CLI 与 Agent Skill。
+轻量本地 API 客户端，基于 MyGo 0.7.1 原生 UI。打开即用，无需账户或先建项目，请求数据与工作区保存在本机。更新检查会访问 GitHub，可在设置中关闭。HTTP、SSE、WebSocket，以及可选的 CLI 与 Agent Skill。
 
-[下载 v0.1.0 · macOS Apple Silicon](https://github.com/echoVic/curlgo/releases/tag/v0.1.0) · [版本记录](CHANGELOG.md) · [MIT 许可证](LICENSE)
+[下载 v0.1.1 · macOS Apple Silicon](https://github.com/echoVic/curlgo/releases/tag/v0.1.1) · [版本记录](CHANGELOG.md) · [MIT 许可证](LICENSE)
 
 ![CurlGo 原生界面](docs/images/curlgo-light.png)
 
-[观看 70 秒产品介绍](https://github.com/echoVic/curlgo/releases/download/v0.1.0/curlgo-0.1.0-launch.mp4) · [Remotion 视频源码与渲染方法](marketing/video/README.md)
+[Remotion 产品视频源码与渲染方法](marketing/video/README.md)
 
 ## 下载与开始使用
 
@@ -17,6 +19,8 @@
 打开后粘贴 curl，或点击「导入 curl / 集合」导入 Postman v2.1 / Bruno 集合；先查看预览，再加入收藏。集合中的脚本不会执行，依赖脚本的工作流需要另行迁移。
 
 桌面端不自动安装 agent 技能、插件或 MCP，不修改 Codex、Claude Code、Copilot 配置。技能接入由用户主动选择。
+
+「设置」页显示当前版本，支持主动检查更新和开关后台自动检查。默认每四小时检查一次，自动下载默认关闭；新版本通过签名校验后由你选择安装与重启。0.1.0 没有更新器，需要手动安装一次 0.1.1。
 
 ## 可以做什么
 

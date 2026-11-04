@@ -2,7 +2,7 @@
   "name": "CurlGo",
   "out": "build",
   "identifier": "com.echovic.curlgo",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "icon": "assets/icon.png",
   "resources": [
     "LICENSE",
@@ -13,5 +13,11 @@
     "notarize": {
       "keychainProfile": "clipnest-notary"
     }
+  },
+  "updates": {
+    "github": "echoVic/curlgo",
+    "publicKey": "RUncuebhnh9E4Fh2vIkgTMlh0kkGRSYUJax6TqV3xcQ=",
+    "privateKey": "~/Library/Application Support/CurlGo/update-keys/mygo-update.key",
+    "changelog": "CHANGELOG.md"
   }
 }

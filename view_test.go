@@ -154,7 +154,7 @@ func TestApplicationView(t *testing.T) {
 	t.Run("初始布局名称地址输入与新建", func(t *testing.T) {
 		a, _ := testApp(t)
 		tt := ui.NewTester(a.view, 1200, 820)
-		for _, text := range []string{"CurlGo", "›", "贴入请求，马上开始"} {
+		for _, text := range []string{"CurlGo", "贴入请求，马上开始"} {
 			if !tt.HasText(text) {
 				t.Fatalf("初始界面未显示品牌文本 %q", text)
 			}

@@ -20,9 +20,11 @@ import (
 )
 
 type saveJob struct {
-	workspace core.Workspace
-	revision  uint64
-	final     bool
+	workspace  core.Workspace
+	revision   uint64
+	generation uint64
+	final      bool
+	reply      chan error
 }
 type application struct {
 	win                                                                    *mygo.Window
@@ -33,6 +35,7 @@ type application struct {
 	closeNative                                                            func()
 	saves                                                                  chan saveJob
 	revision                                                               uint64
+	saveGeneration                                                         uint64
 	closing, closed, saveReady, readOnly                                   bool
 	page, requestTab, responseTab, libraryTab                              int
 	headers, globalHeaders, variables, envName, search, curlInput, message string
@@ -80,6 +83,10 @@ type application struct {
 	secretGeneration                                                       uint64
 	secretEditorGeneration                                                 uint64
 	secretCancel                                                           context.CancelFunc
+	appUpdater                                                             updateBackend
+	updatePrefs                                                            updatePreferences
+	updateOff                                                              func()
+	updateSubscription                                                     uint64
 }
 
 func newApplication(w core.Workspace) *application {
@@ -175,8 +182,14 @@ func (a *application) startSaving() {
 				timer.Stop()
 			}
 			err := store.Save(job.workspace)
+			if job.reply != nil {
+				// OnBeforeQuit waits on the main thread. Return the disk result
+				// independently of UI callbacks, preserving the original Relaunch.
+				job.reply <- err
+				continue
+			}
 			post(func() {
-				if a.closed {
+				if a.closed || job.generation != a.saveGeneration {
 					return
 				}
 				if err != nil {
@@ -206,7 +219,7 @@ func (a *application) persist() {
 	if a.saves == nil {
 		return
 	}
-	job := saveJob{workspace: cloneWorkspace(a.workspace), revision: a.revision}
+	job := saveJob{workspace: cloneWorkspace(a.workspace), revision: a.revision, generation: a.saveGeneration}
 	select {
 	case a.saves <- job:
 	default:
@@ -229,12 +242,49 @@ func (a *application) closeWindow(e *mygo.CloseEvent) {
 	a.stop()
 	a.workspace.Cookies = a.engine.CookieSnapshot()
 	a.closing = true
-	job := saveJob{workspace: cloneWorkspace(a.workspace), revision: a.revision, final: true}
+	a.saveGeneration++
+	job := saveJob{workspace: cloneWorkspace(a.workspace), revision: a.revision, generation: a.saveGeneration, final: true}
 	select {
 	case <-a.saves:
 	default:
 	}
 	a.saves <- job
+}
+
+func (a *application) beforeQuit(e *mygo.QuitEvent) {
+	if a.closed {
+		return
+	}
+	a.lockSecrets()
+	if a.saveReady || a.readOnly {
+		return
+	}
+	a.stop()
+	a.workspace.Cookies = a.engine.CookieSnapshot()
+	a.closing = true
+	a.saveGeneration++
+	a.saveStatus = "正在保存…"
+	reply := make(chan error, 1)
+	job := saveJob{workspace: cloneWorkspace(a.workspace), revision: a.revision, generation: a.saveGeneration, final: true, reply: reply}
+	// Replace a queued save, including a prior asynchronous window close.
+	// Any in-flight save finishes first on this same worker; its UI callback
+	// is invalidated by saveGeneration and need not run before the final flush.
+	select {
+	case <-a.saves:
+	default:
+	}
+	a.saves <- job
+	if err := <-reply; err != nil {
+		e.PreventDefault()
+		a.closing = false
+		a.saveReady = false
+		a.saveStatus = "保存失败：" + err.Error()
+		a.notice = a.saveStatus
+		a.post(func() {}) // repaint the retained window once the quit hook returns
+		return
+	}
+	a.saveStatus = "已保存到本机"
+	a.saveReady = true
 }
 func (a *application) syncDraft() {
 	a.showCredentials = false
