@@ -5,6 +5,7 @@ Temporary inputs, outputs, credentials, and uploads are owned and auto-cleaned.
 """
 
 import argparse
+import ast
 import hashlib
 import json
 import os
@@ -51,10 +52,40 @@ class Service(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def task_route(self, raw=None):
+        path = urlsplit(self.path).path
+        if not path.startswith('/tasks') or not hasattr(self.server, 'task_mode'):
+            return False
+        self.server.task_requests.append((self.command, path))
+        if self.command == 'POST' and path == '/tasks':
+            if self.server.task_mode == 'create_failure':
+                self.reply({'ok': False, 'data': {'id': self.server.task_id}})
+            else:
+                self.server.task = {'id': self.server.task_id, 'state': 'new',
+                                    'message': json.loads(raw)['message']}
+                self.reply({'ok': True, 'data': dict(self.server.task)}, 201)
+        elif self.command == 'POST' and path == '/tasks/' + self.server.task_id + '/complete':
+            self.server.task['state'] = 'done'
+            self.reply({'ok': True})
+        elif self.command == 'GET' and path == '/tasks/' + self.server.task_id:
+            data = dict(self.server.task)
+            if self.server.task_mode == 'query_pending':
+                data['state'] = 'pending'
+            elif self.server.task_mode == 'query_wrong_id':
+                data['id'] = 'another-task'
+            elif self.server.task_mode == 'query_wrong_message':
+                data['message'] = 'another-message'
+            self.reply({'ok': True, 'data': data})
+        else:
+            self.reply({'ok': False}, 404)
+        return True
+
     def do_GET(self):
         path = urlsplit(self.path).path
         with self.server.counter_lock:
             self.server.calls += 1
+        if self.task_route():
+            return
         if path == "/health":
             self.reply({"ok": True})
         elif path == "/echo":
@@ -95,6 +126,8 @@ class Service(BaseHTTPRequestHandler):
         with self.server.counter_lock:
             self.server.calls += 1
         raw = self.rfile.read(int(self.headers.get("Content-Length", "0")))
+        if self.task_route(raw):
+            return
         if path == "/login":
             self.reply({"ok": True, "data": {"access_token": TOKEN}},
                        headers=[("Set-Cookie", "session=fixture; Path=/; HttpOnly")])
@@ -352,14 +385,80 @@ class Scenarios(unittest.TestCase):
         self.successful(*self.call(request, "--ca-file", str(cert)))
 
     def test_documented_python_recipes_execute(self):
-        text = (ROOT / "skills/api-test/references/workflows.md").read_text()
-        blocks = re.findall(r"```python\n(.*?)\n```", text, re.S)
-        self.assertEqual(len(blocks), 2)
         namespace = {}
-        recipe = blocks[0].replace('binary = "/tmp/curlgo-api-test"', "binary = " + repr(self.binary))
+        recipe = self.recipe('JSON Bodies And Query Parameters')
+        recipe = recipe.replace('binary = "/tmp/curlgo-api-test"', "binary = " + repr(self.binary))
         recipe = recipe.replace('base_url = "http://127.0.0.1:8080"', "base_url = " + repr(self.base))
         exec(compile(recipe, "workflows.md:json", "exec"), namespace)
-        exec(compile(blocks[1], "workflows.md:login", "exec"), namespace)
+        exec(compile(self.recipe('Serial Login Chains'), "workflows.md:login", "exec"), namespace)
+
+    def recipe(self, heading):
+        text = (ROOT / 'skills/api-test/references/workflows.md').read_text()
+        sections = re.split(r'^## ', text, flags=re.M)
+        section = next((s for s in sections if s.splitlines()[0] == heading), None)
+        self.assertIsNotNone(section, 'Missing runnable workflow: ' + heading)
+        blocks = re.findall(r'```python\n(.*?)\n```', section, re.S)
+        self.assertTrue(blocks, 'Missing Python recipe: ' + heading)
+        return blocks[0]
+
+    def business_chain(self, mode):
+        server = serve()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        server.task_mode, server.task_id = mode, 'task-' + os.urandom(6).hex()
+        server.task_requests = []
+        namespace = {}
+        # Reuse documented helpers without sending the unrelated echo example.
+        setup = ast.parse(self.recipe('JSON Bodies And Query Parameters'))
+        setup.body = [node for node in setup.body
+                      if isinstance(node, (ast.Import, ast.ImportFrom, ast.FunctionDef))]
+        exec(compile(setup, 'workflows.md:helpers', 'exec'), namespace)
+        exec(compile(self.recipe('Business Chains'), 'workflows.md:chain', 'exec'), namespace)
+        work = self.work / mode
+        work.mkdir(mode=0o700)
+        summary = namespace['run_business_chain'](
+            self.binary, f'http://127.0.0.1:{server.server_port}', work, MESSAGE)
+        self.assertEqual(summary, json.loads((work / 'summary.json').read_bytes()))
+        self.assertNotIn(MESSAGE, json.dumps(summary, ensure_ascii=False))
+        for path in work.rglob('*'):
+            self.assertEqual(path.stat().st_mode & 0o777, 0o700 if path.is_dir() else 0o600)
+        return summary, server, work
+
+    def test_business_chain_passes_and_retains_step_evidence(self):
+        summary, server, work = self.business_chain('success')
+        self.assertEqual(summary['status'], 'passed')
+        self.assertEqual([s['status'] for s in summary['steps']], ['passed'] * 3)
+        self.assertEqual(server.task['message'], MESSAGE)
+        self.assertEqual(server.task['state'], 'done')
+        self.assertEqual(server.task_requests, [
+            ('POST', '/tasks'), ('POST', '/tasks/' + server.task_id + '/complete'),
+            ('GET', '/tasks/' + server.task_id)])
+        for step in summary['steps']:
+            evidence = work / step['name']
+            self.assertTrue((evidence / 'request.json').is_file())
+            self.assertTrue(list(evidence.glob('result-*.json')))
+
+    def test_business_chain_stops_after_upstream_business_failure(self):
+        summary, server, work = self.business_chain('create_failure')
+        self.assertEqual(summary['status'], 'failed')
+        self.assertEqual([s['status'] for s in summary['steps']], ['failed', 'not_run', 'not_run'])
+        self.assertEqual(server.task_requests, [('POST', '/tasks')])
+        self.assertEqual(summary['steps'][0]['httpStatus'], 200)
+        for step in summary['steps'][1:]:
+            self.assertEqual(step['reason'], 'dependency_failed:create')
+        outputs = [json.loads(p.read_bytes()) for p in (work / 'create').glob('result-*.json')]
+        result = next(v['result'] for v in outputs if 'result' in v)
+        self.assertNotIn('extractedVariables', result)
+
+    def test_business_chain_rejects_wrong_final_business_result(self):
+        for mode in ['query_pending', 'query_wrong_id', 'query_wrong_message']:
+            with self.subTest(mode=mode):
+                summary, server, _ = self.business_chain(mode)
+                self.assertEqual(summary['status'], 'failed')
+                self.assertEqual([s['status'] for s in summary['steps']], ['passed', 'passed', 'failed'])
+                self.assertEqual([s['httpStatus'] for s in summary['steps']], [201, 200, 200])
+                self.assertEqual(summary['steps'][-1]['errorCode'], 'ASSERTION_FAILED')
+                self.assertEqual(len(server.task_requests), 3)
 
 
 def public_checks(binary):

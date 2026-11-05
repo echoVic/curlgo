@@ -1,6 +1,6 @@
 ---
 name: api-test
-description: Use when testing or debugging HTTP/HTTPS APIs with CurlGo, including pasted curl, query parameters, JSON payloads, authentication, login chains, uploads, and response assertions. Not for GUI replay, collection runners, SSE, or WebSocket.
+description: Use when testing or debugging HTTP/HTTPS APIs with CurlGo, including checks for changed API behavior, serial business chains, pasted curl, JSON payloads, authentication, uploads, and response assertions. Not for GUI replay, collection runners, SSE, or WebSocket.
 metadata:
   compatibility: Requires CurlGo on PATH, or Go 1.27.3 and a CurlGo source checkout to build it.
 ---
@@ -26,15 +26,19 @@ Run `curlgo help run` to inspect JSON options and limits. Bare `curlgo` opens th
 | User task | Input and guidance |
 |---|---|
 | Check an endpoint | JSON request with status and relevant business assertions; minimal example below |
+| Verify an API change | Read the diff, identify affected behavior, and choose focused checks; [checks from changes](references/workflows.md#checks-from-changes) |
 | Reproduce pasted curl | Save the text privately and pass `--curl path` or `--curl -`; supported flags and literal-text rules in [CLI reference](references/cli-reference.md#multipart-and-literal-text) |
 | Send JSON or query parameters | Use the serialization recipe in [workflows](references/workflows.md#json-bodies-and-query-parameters) |
 | Bearer / Basic / API Key | `request.auth`; real credentials via `{{secret.name}}` and private `--secrets-file`; [authentication](references/cli-reference.md#structured-authentication) |
 | Login, then call another endpoint | Check login status and business success before propagation; [serial token and Cookie chains](references/workflows.md#serial-login-chains) |
+| Verify a business flow across endpoints | Orchestrate serial CLI calls with runtime IDs, per-step evidence, and a final business check; [business chains](references/workflows.md#business-chains) |
 | Upload an authorized file | JSON `bodyMode: "multipart"` and an absolute `formParts[].filePath`; [multipart](references/cli-reference.md#multipart-and-literal-text) |
 | Private CA, proxy, or shared Cookies | Explicit CLI configuration; [routing and state](references/cli-reference.md#explicit-ca-cookies-and-proxy) |
 | Large/binary response or failed check | Read the envelope and captured body as described below; [detailed output contract](references/cli-reference.md#interpret-output) |
 
 For field syntax, read only the relevant reference: [assertions](references/assertions.md), [response extraction](references/response-extraction.md), or [secrets](references/project-secrets.md). V1 has no collection runner, assertion scripts, headless SSE/WebSocket, or GUI replay.
+
+When a diff or commit is supplied, connect changed behavior to affected endpoints and a few concrete checks, using the contract or existing tests for expectations. Include the main path and relevant changed failure/boundary behavior; widen coverage when shared code affects more callers. Briefly state what you will check and proceed within the existing authorization. Ask only for missing information that prevents a meaningful or authorized check; no separate planning document or routine approval round is needed.
 
 ## Prepare And Execute
 
@@ -97,6 +101,8 @@ Inspect `result.body` before parsing it:
 - `--inline-body-bytes` defaults to 262144; 0 writes every nonempty body to a file. Use an existing owned `--out-dir` when predictable cleanup matters.
 
 Token extraction requires a complete 2xx response and all enabled assertions passing. Check business success before continuing; HTTP 200 with `ok: false` must not supply a usable token. CLI returns `result.extractedVariables` but updates no input or secret file. Serialize `secret.token` into the next private file's `variables.token`, and send it using `--secrets-file`. Run calls sharing a Cookie jar serially; jars are CurlGo JSON, not Netscape format. See [login recipe](references/workflows.md#serial-login-chains).
+
+For business chains, record each step as `passed`, `failed`, or `not_run` with its dependency reason. Propagate ordinary extracted values explicitly into the next selected environment. Overall success requires the final business outcome, including object identity and relevant persisted fields; several successful HTTP calls alone are insufficient. Stop dependent calls on failure and distinguish an observed assertion failure from incomplete evidence or an unconfirmed root cause.
 
 Report the actual mode, sanitized endpoint, exit/error code, HTTP status, relevant checks, and any incomplete or unsaved result. `result.timing` is milliseconds; stages overlap and must not be added together. Headers are multivalue arrays. Raw responses, URLs, Cookies, and extracted values may contain secrets.
 

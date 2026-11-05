@@ -66,9 +66,9 @@ npx skills add echoVic/curlgo --skill api-test -a claude-code -a codex
 
 安装、查看安装范围和移除方法见[可选技能说明](docs/agent-skill.md)。卸载桌面应用不会移除你另外安装的技能。
 
-技能入口按任务选择参考文档；[请求与登录链示例](skills/api-test/references/workflows.md)提供 JSON 正文序列化、查询编码、私有令牌串联和文件响应读取的可运行代码。`request.body` 是字符串，变量替换不会做 JSON 转义；CLI 查询参数以 `request.url` 为准，`request.queryParams` 只用于编辑器元数据。
+技能入口按任务选择参考文档；[请求与业务链路示例](skills/api-test/references/workflows.md)提供 JSON 正文序列化、查询编码、私有令牌串联、文件响应读取，以及创建→完成→查询的串行示例。链路显式传递返回 ID、保留私有步骤证据，并以最终对象与状态判断整体验收。给定 diff 或 commit 时，技能按变更选择相关接口和断言，简述后执行，无需单独编写测试计划。`request.body` 是字符串，变量替换不会做 JSON 转义；CLI 查询参数以 `request.url` 为准，`request.queryParams` 只用于编辑器元数据。
 
-维护者可在仓库根目录复跑真实 CLI 场景。脚本使用 Python 标准库启动临时本地 HTTP 服务，验证登录、Cookie、上传字节、大响应、失败诊断，并直接执行技能文档中的 Python 例子。临时文件自动清理；TLS 场景需要系统 `openssl`，缺失时明确跳过：
+维护者可在仓库根目录复跑真实 CLI 场景。脚本使用 Python 标准库启动临时本地 HTTP 服务，验证登录、Cookie、上传字节、大响应、失败诊断，并直接执行技能文档中的 Python 例子。业务链路覆盖成功、前置业务失败后不再发送后续请求，以及全部返回 2xx 但最终状态、对象 ID 或业务字段不符的情况；本地 fixture 不代表真实业务系统验收。测试临时文件自动清理；TLS 场景需要系统 `openssl`，缺失时明确跳过：
 
 ```sh
 CGO_ENABLED=0 go build -o /tmp/curlgo-api-test .
