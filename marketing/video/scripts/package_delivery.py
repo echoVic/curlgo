@@ -86,7 +86,7 @@ def main():
         assert cap["measuredEndMs"] <= narration["end"] * 1000
         if i:
             assert caps[i-1]["endMs"] == cap["startMs"], "Caption holds must meet exactly"
-    assert narration["videoRevision"] == "flow-20261105"
+    assert narration["videoRevision"] == "flow-20261105-finale"
     first_caption = round(caps[0]["startMs"] / 1000 * 30)
     last_caption = round(caps[-1]["endMs"] / 1000 * 30)
     blank_frames = sum(not any(round(c["startMs"] / 1000 * 30) <= f < round(c["endMs"] / 1000 * 30)
@@ -95,7 +95,9 @@ def main():
     assert (PUBLIC / "captions-zh.vtt").read_text().count(" --> ") == len(caps)
     stills = [(1.0, "opening"), (5.5, "request"), (12.0, "response"),
               (18.0, "verify"), (23.5, "extract"), (34.0, "skill"),
-              (40.0, "preflight"), (48.0, "closing"), (51.0, "end")]
+              (40.0, "preflight"), (48.0, "closing"),
+              (next(b["seconds"] for b in narration["beats"] if b["id"] == "summary") + 2, "summary"),
+              ((narration["durationInFrames"] - 1) / 30, "end")]
     for seconds, label in stills:
         run(["ffmpeg", "-v", "error", "-y", "-ss", str(seconds), "-i", str(target),
              "-frames:v", "1", str(OUT / f"key-{label}.png")])
@@ -116,7 +118,7 @@ def main():
     score = json.loads((PUBLIC / "score-manifest.json").read_text())
     metadata = {
         "title": "CurlGo — 从一条请求开始", "version": "0.1.1",
-        "videoRevision": "flow-20261105",
+        "videoRevision": narration["videoRevision"],
         "composition": "CurlGoRoundtrip", "durationSeconds": float(video["duration"]),
         "width": video["width"], "height": video["height"], "fps": 30,
         "frames": int(video["nb_frames"]), "videoCodec": "h264",
@@ -126,19 +128,20 @@ def main():
         "video": target.name, "poster": "curlgo-poster.jpg",
         "posterFrameSeconds": 23.5, "captions": "captions-zh.vtt",
         "language": "zh-CN", "captionCount": len(caps),
-        "narration": {k: narration[k] for k in ["voice", "rate", "pitch", "takeCount", "playbackRate", "timeStretch", "duration", "boundarySource", "paragraphCount", "wordCount", "captionHold"]},
+        "narration": {k: narration[k] for k in ["voice", "rate", "pitch", "takeCount", "playbackRate", "timeStretch", "duration", "boundarySource", "paragraphCount", "wordCount", "captionHold", "pronunciation"]},
         "narrationSha256": digest(PUBLIC / narration["audio"]),
         "speechRhythm": {"thresholdDb": -38, "minimumSilenceSeconds": .25,
                          **{name: {k: data[k] for k in ["durationSeconds", "silenceCount", "silenceSeconds", "silencePercentage", "interiorPauseCount", "interiorPauseSeconds", "interiorPausePercentage"]}
                             for name, data in [("old", rhythm["old"]), ("new", rhythm["new"])]},
                          "limitation": rhythm["limitation"]},
         "score": score,
-        "visuals": {"stageColor": "#0c3038", "persistentWorkbench": True,
+        "visuals": {"stageColor": "#0c3038", "persistentWorkbenchDuringDemo": True,
                     "camera": "Monotonic scale 1 to 1.018; no pan or returning moves",
-                    "titleCount": 2, "nativeScreenshot": "curlgo-dark.png",
+                    "titleCount": 3, "nativeScreenshot": "curlgo-dark.png",
                     "nativeScreenshotSource": "Existing built CurlGo 0.1.1 macOS app disposable --dark --render",
                     "nativeScreenshotSha256": digest(PUBLIC / "curlgo-dark.png"),
-                    "illustrationLabel": "原生深色界面截图 · 地址、响应与交互为示意，非真实录屏"},
+                    "onScreenProvenanceLabel": False,
+                    "summaryCard": {"version": "0.1.1", "license": "MIT", "platform": "macOS Apple Silicon", "site": "curlgo.echovic.com", "github": "github.com/echoVic/curlgo", "holdAfterNarrationSeconds": 5}},
         "posterSha256": digest(PUBLIC / "curlgo-poster.jpg"),
         "captionsSha256": digest(PUBLIC / "captions-zh.vtt"),
         "audioMeasured": {"integratedLufs": float(measured["input_i"]), "truePeakDbtp": float(measured["input_tp"]), "lra": float(measured["input_lra"])},
@@ -149,7 +152,7 @@ def main():
                        "renderedKeyStills": [{"seconds": s, "file": f"out/key-{label}.png"} for s, label in stills]},
         "website": {"preload": "none", "controls": True, "playsInline": True,
                     "trackKind": "captions", "trackLabel": "简体中文"},
-        "claims": "Native workspace is real; response data and CLI interaction are labelled illustrations. Closing version is 0.1.1; no updater availability claim.",
+        "claims": "Native workspace screenshot with animated request, response and CLI overlays. Summary version is 0.1.1; no updater availability claim.",
         "limitations": ["No human listening review", "Local media validation; production HTTP Range and browser playback await website integration"],
     }
     (PUBLIC / "video-metadata.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n")

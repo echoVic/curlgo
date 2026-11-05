@@ -117,7 +117,9 @@ async def main():
         "rawDuration": natural, "end": CONFIG["leadInSeconds"] + processed,
         "durationInFrames": frames, "fps": 30, "durationSeconds": frames / 30,
         "boundarySource": "Edge TTS WordBoundary from this exact audio stream",
-        "paragraphCount": 4, "captionHold": "continuous until next measured start",
+        "paragraphCount": max(p.get("paragraph", 1) for p in CONFIG["phrases"]),
+        "pronunciation": {"命令行": "mìng lìng háng", "speechOnlyHomophone": "命令航"},
+        "captionHold": "continuous until next measured start",
         "wordCount": len(words), "captionCount": len(captions), "beats": beats,
     }
     (OUTPUT / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")

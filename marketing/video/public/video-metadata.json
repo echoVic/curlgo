@@ -1,27 +1,27 @@
 {
   "title": "CurlGo — 从一条请求开始",
   "version": "0.1.1",
-  "videoRevision": "flow-20261105",
+  "videoRevision": "flow-20261105-finale",
   "composition": "CurlGoRoundtrip",
-  "durationSeconds": 51.4,
+  "durationSeconds": 62.9,
   "width": 1920,
   "height": 1080,
   "fps": 30,
-  "frames": 1542,
+  "frames": 1887,
   "videoCodec": "h264",
   "audioCodec": "aac",
   "pixelFormat": "yuv420p",
   "faststart": true,
   "moovOffset": 32,
-  "mdatOffset": 58039,
-  "bytes": 5033704,
-  "sha256": "6254255e8c87ee10967972202dfa43277817af8cdb7690ce1d311883b06a8f14",
+  "mdatOffset": 70955,
+  "bytes": 6015204,
+  "sha256": "0c118699c926a44177e5adc0abbd8f69a7eaa101928444676be246202ced7ff7",
   "video": "curlgo-roundtrip-zh.mp4",
   "poster": "curlgo-poster.jpg",
   "posterFrameSeconds": 23.5,
   "captions": "captions-zh.vtt",
   "language": "zh-CN",
-  "captionCount": 17,
+  "captionCount": 20,
   "narration": {
     "voice": "zh-CN-XiaoxiaoNeural",
     "rate": "+0%",
@@ -29,13 +29,17 @@
     "takeCount": 1,
     "playbackRate": 1,
     "timeStretch": false,
-    "duration": 48.4,
+    "duration": 57.3,
     "boundarySource": "Edge TTS WordBoundary from this exact audio stream",
-    "paragraphCount": 4,
-    "wordCount": 124,
-    "captionHold": "continuous until next measured start"
+    "paragraphCount": 5,
+    "wordCount": 142,
+    "captionHold": "continuous until next measured start",
+    "pronunciation": {
+      "命令行": "mìng lìng háng",
+      "speechOnlyHomophone": "命令航"
+    }
   },
-  "narrationSha256": "a9a7168d1040a8f3a79a5dd92831fdb2b14b4ca9cf0a60ccdce5dc58948594f9",
+  "narrationSha256": "b06bd69c4158aa70a15e778ca5eb63b1591873512a8b993faa119b15aa8b8bf6",
   "speechRhythm": {
     "thresholdDb": -38,
     "minimumSilenceSeconds": 0.25,
@@ -49,47 +53,55 @@
       "interiorPausePercentage": 28.549297090352226
     },
     "new": {
-      "durationSeconds": 48.4,
-      "silenceCount": 9,
-      "silenceSeconds": 5.830916000000003,
-      "silencePercentage": 12.047347107438023,
-      "interiorPauseCount": 8,
-      "interiorPauseSeconds": 5.2369370000000055,
-      "interiorPausePercentage": 10.820117768595054
+      "durationSeconds": 57.3,
+      "silenceCount": 15,
+      "silenceSeconds": 8.576186999999996,
+      "silencePercentage": 14.967167539267008,
+      "interiorPauseCount": 14,
+      "interiorPauseSeconds": 8.022604,
+      "interiorPausePercentage": 14.001054101221639
     },
     "limitation": "Silence detection measures rhythm, not perceived fluency. No human listening review is claimed. No detected silence was cut or time-compressed."
   },
   "score": {
     "title": "Roundtrip",
-    "videoRevision": "flow-20261105",
+    "videoRevision": "flow-20261105-finale",
     "arrangement": "72 BPM; half-density paired motif an octave lower; soft attack; no percussion",
     "originalSynthesis": true,
     "bpm": 72,
-    "durationSeconds": 51.4,
+    "durationSeconds": 62.9,
     "duckSource": "narration/continuous.m4a",
     "duckMethod": "20ms waveform RMS, 120ms look-ahead, 650ms release",
     "maximumReductionDb": -13.98,
     "minimumGain": 0.19999999999999996,
     "maximumGain": 1.0,
-    "speechActiveSeconds": 46.076,
-    "peak": 0.02135
+    "speechActiveSeconds": 54.29,
+    "peak": 0.048
   },
   "visuals": {
     "stageColor": "#0c3038",
-    "persistentWorkbench": true,
+    "persistentWorkbenchDuringDemo": true,
     "camera": "Monotonic scale 1 to 1.018; no pan or returning moves",
-    "titleCount": 2,
+    "titleCount": 3,
     "nativeScreenshot": "curlgo-dark.png",
     "nativeScreenshotSource": "Existing built CurlGo 0.1.1 macOS app disposable --dark --render",
     "nativeScreenshotSha256": "e31cb5b6dcf0388558f78e7e3cc3522d3e082ed0de41348e95b2f6d5ec8abf89",
-    "illustrationLabel": "原生深色界面截图 · 地址、响应与交互为示意，非真实录屏"
+    "onScreenProvenanceLabel": false,
+    "summaryCard": {
+      "version": "0.1.1",
+      "license": "MIT",
+      "platform": "macOS Apple Silicon",
+      "site": "curlgo.echovic.com",
+      "github": "github.com/echoVic/curlgo",
+      "holdAfterNarrationSeconds": 5
+    }
   },
-  "posterSha256": "e54e5fb3bf15e0079f3e15e68dd4bd5ee2a6664238b342e9f2c7993270e64f4a",
-  "captionsSha256": "cf67032120541c001f2cedd8728d025cce5d6c7c93a478ad64f55d5a03c29560",
+  "posterSha256": "5be451329f21d3d084752eb1aacde2264c5892d58d3d2c1fb2b837500d026ffd",
+  "captionsSha256": "9c1abd69da604bb7cd268fbd2d8c755f79082df2168f00796e1244664caa22aa",
   "audioMeasured": {
     "integratedLufs": -13.24,
     "truePeakDbtp": -1.97,
-    "lra": 2.0
+    "lra": 1.8
   },
   "validation": {
     "webColorRange": "limited BT.709 yuv420p",
@@ -99,7 +111,7 @@
     "naturalSpeechRate": true,
     "faststartAtoms": "passed",
     "captionInteriorBlankFrames": 0,
-    "constantStageCornerFrames": 1542,
+    "constantStageCornerFrames": 1887,
     "renderedKeyStills": [
       {
         "seconds": 1.0,
@@ -134,7 +146,11 @@
         "file": "out/key-closing.png"
       },
       {
-        "seconds": 51.0,
+        "seconds": 50.362,
+        "file": "out/key-summary.png"
+      },
+      {
+        "seconds": 62.86666666666667,
         "file": "out/key-end.png"
       }
     ]
@@ -146,7 +162,7 @@
     "trackKind": "captions",
     "trackLabel": "简体中文"
   },
-  "claims": "Native workspace is real; response data and CLI interaction are labelled illustrations. Closing version is 0.1.1; no updater availability claim.",
+  "claims": "Native workspace screenshot with animated request, response and CLI overlays. Summary version is 0.1.1; no updater availability claim.",
   "limitations": [
     "No human listening review",
     "Local media validation; production HTTP Range and browser playback await website integration"

@@ -106,33 +106,57 @@
   {
     "text": "先让它通过命令行检查请求配置",
     "startMs": 37338,
-    "endMs": 40212,
+    "endMs": 40200,
     "timestampMs": 37338,
     "confidence": null,
-    "measuredEndMs": 40200
+    "measuredEndMs": 40188
   },
   {
     "text": "确认无误后再决定是否发送",
-    "startMs": 40212,
-    "endMs": 43462,
-    "timestampMs": 40212,
+    "startMs": 40200,
+    "endMs": 43288,
+    "timestampMs": 40200,
     "confidence": null,
-    "measuredEndMs": 42888
+    "measuredEndMs": 42712
   },
   {
     "text": "从桌面调试到命令行验证",
-    "startMs": 43462,
-    "endMs": 46025,
-    "timestampMs": 43462,
+    "startMs": 43288,
+    "endMs": 45862,
+    "timestampMs": 43288,
     "confidence": null,
-    "measuredEndMs": 45925
+    "measuredEndMs": 45762
   },
   {
     "text": "始终围绕你手边的这一条请求",
-    "startMs": 46025,
-    "endMs": 48788,
-    "timestampMs": 46025,
+    "startMs": 45862,
+    "endMs": 48812,
+    "timestampMs": 45862,
     "confidence": null,
-    "measuredEndMs": 48388
+    "measuredEndMs": 48238
+  },
+  {
+    "text": "CurlGo，现在开源",
+    "startMs": 48812,
+    "endMs": 51075,
+    "timestampMs": 48812,
+    "confidence": null,
+    "measuredEndMs": 50500
+  },
+  {
+    "text": "你的 API 工具，由你做主",
+    "startMs": 51075,
+    "endMs": 53838,
+    "timestampMs": 51075,
+    "confidence": null,
+    "measuredEndMs": 53275
+  },
+  {
+    "text": "下载，导入集合，完成你的第一次请求",
+    "startMs": 53838,
+    "endMs": 57662,
+    "timestampMs": 53838,
+    "confidence": null,
+    "measuredEndMs": 57262
   }
 ]

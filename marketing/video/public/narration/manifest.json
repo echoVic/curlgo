@@ -1,25 +1,29 @@
 {
-  "videoRevision": "flow-20261105",
+  "videoRevision": "flow-20261105-finale",
   "voice": "zh-CN-XiaoxiaoNeural",
   "rate": "+0%",
   "pitch": "+0Hz",
   "takeCount": 1,
   "playbackRate": 1,
   "timeStretch": false,
-  "scriptSha256": "94f73b896260946c4b964cf4b549901d848ee5cb9d0f8d34be3280f6362d725c",
+  "scriptSha256": "2c34936cdd7de82d229c40260462313b4dbb8cfe4688313d5c21a0fd3b2bcc42",
   "audio": "narration/continuous.m4a",
   "from": 0.6,
-  "duration": 48.4,
-  "rawDuration": 48.384,
-  "end": 49.0,
-  "durationInFrames": 1542,
+  "duration": 57.3,
+  "rawDuration": 57.24,
+  "end": 57.9,
+  "durationInFrames": 1887,
   "fps": 30,
-  "durationSeconds": 51.4,
+  "durationSeconds": 62.9,
   "boundarySource": "Edge TTS WordBoundary from this exact audio stream",
-  "paragraphCount": 4,
+  "paragraphCount": 5,
+  "pronunciation": {
+    "命令行": "mìng lìng háng",
+    "speechOnlyHomophone": "命令航"
+  },
   "captionHold": "continuous until next measured start",
-  "wordCount": 124,
-  "captionCount": 17,
+  "wordCount": 142,
+  "captionCount": 20,
   "beats": [
     {
       "id": "opening",
@@ -59,7 +63,11 @@
     },
     {
       "id": "closing",
-      "seconds": 45.575
+      "seconds": 45.412
+    },
+    {
+      "id": "summary",
+      "seconds": 48.362
     }
   ]
 }

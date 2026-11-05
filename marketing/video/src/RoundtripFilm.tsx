@@ -32,8 +32,7 @@ const at = (id: string) => {
 const reveal = (t: number, id: string, delay = 0, length = 1) =>
   interpolate(t, [at(id) + delay, at(id) + delay + length], [0, 1], smooth);
 
-// A single mounted native screenshot and in-workspace illustrations. No scene
-// sequences, changing background, window replacement or returning camera moves.
+// A continuous workbench, followed by a summary on the same petrol stage.
 export const RoundtripFilm = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -349,24 +348,13 @@ export const RoundtripFilm = () => {
                   marginTop: 18,
                 }}
               >
-                CLI 示意叠层 · 需另行安装 Skill
+                按需安装 API Test Skill
                 <br />
                 并提供 CurlGo 可执行文件。
               </div>
             </div>
           </div>
         </div>
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          left: 94,
-          bottom: 113,
-          fontSize: 17,
-          color: "#8ca7a9",
-        }}
-      >
-        原生深色界面截图 · 地址、响应与交互为示意，非真实录屏
       </div>
       <div
         style={{
@@ -381,6 +369,31 @@ export const RoundtripFilm = () => {
       >
         github.com/echoVic/curlgo
       </div>
+      <AbsoluteFill
+        style={{
+          backgroundColor: petrol,
+          opacity: reveal(t, "summary", 0, 1.1),
+          alignItems: "center",
+          justifyContent: "center",
+          paddingBottom: 65,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 22 }}>
+          <Img src={staticFile("icon.png")} style={{ width: 82, height: 82 }} />
+          <span style={{ fontSize: 70, fontWeight: 600, letterSpacing: -2 }}>CurlGo</span>
+          <span style={{ fontSize: 28, color: muted, marginLeft: 8, paddingTop: 24 }}>v0.1.1</span>
+        </div>
+        <div style={{ fontSize: 112, fontWeight: 600, color: mint, letterSpacing: -3, marginTop: 37 }}>现在，开源。</div>
+        <div style={{ fontSize: 35, color: foreground, marginTop: 18 }}>你的 API 工具，由你做主。</div>
+        <div style={{ marginTop: 40, padding: "22px 38px", borderRadius: 14, backgroundColor: "#147f72", fontFamily: mono, fontSize: 34, color: "#ffffff" }}>github.com/echoVic/curlgo</div>
+        <div style={{ display: "flex", gap: 16, marginTop: 24, fontSize: 25 }}>
+          {["MIT 开源", "macOS Apple Silicon"].map((label) => (
+            <span key={label} style={{ border: "1px solid #3b595b", padding: "13px 22px", borderRadius: 10, color: foreground }}>{label}</span>
+          ))}
+        </div>
+        <div style={{ marginTop: 27, color: muted, fontSize: 26 }}>下载 · 导入集合 · 完成你的第一次请求</div>
+        <div style={{ marginTop: 22, color: mint, fontSize: 27, fontFamily: mono }}>curlgo.echovic.com</div>
+      </AbsoluteFill>
       <FilmCaptions />
       <Audio src={staticFile("roundtrip.m4a")} />
       <Sequence from={Math.round(manifest.from * fps)} layout="none">
