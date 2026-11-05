@@ -1,21 +1,21 @@
 {
   "title": "CurlGo — 从一条请求开始",
   "version": "0.1.1",
-  "videoRevision": "flow-20261105-finale",
+  "videoRevision": "flow-20261105-finale-trim2",
   "composition": "CurlGoRoundtrip",
-  "durationSeconds": 62.9,
+  "durationSeconds": 60.9,
   "width": 1920,
   "height": 1080,
   "fps": 30,
-  "frames": 1887,
+  "frames": 1827,
   "videoCodec": "h264",
   "audioCodec": "aac",
   "pixelFormat": "yuv420p",
   "faststart": true,
   "moovOffset": 32,
-  "mdatOffset": 70955,
-  "bytes": 6015204,
-  "sha256": "0c118699c926a44177e5adc0abbd8f69a7eaa101928444676be246202ced7ff7",
+  "mdatOffset": 68691,
+  "bytes": 5929372,
+  "sha256": "43e87a5b922cad4c1047cfdaa24a212478241b79297d178678c2d4ec2b135f82",
   "video": "curlgo-roundtrip-zh.mp4",
   "poster": "curlgo-poster.jpg",
   "posterFrameSeconds": 23.5,
@@ -65,18 +65,18 @@
   },
   "score": {
     "title": "Roundtrip",
-    "videoRevision": "flow-20261105-finale",
+    "videoRevision": "flow-20261105-finale-trim2",
     "arrangement": "72 BPM; half-density paired motif an octave lower; soft attack; no percussion",
     "originalSynthesis": true,
     "bpm": 72,
-    "durationSeconds": 62.9,
+    "durationSeconds": 60.9,
     "duckSource": "narration/continuous.m4a",
     "duckMethod": "20ms waveform RMS, 120ms look-ahead, 650ms release",
     "maximumReductionDb": -13.98,
     "minimumGain": 0.19999999999999996,
     "maximumGain": 1.0,
     "speechActiveSeconds": 54.29,
-    "peak": 0.048
+    "peak": 0.03868
   },
   "visuals": {
     "stageColor": "#0c3038",
@@ -93,10 +93,10 @@
       "platform": "macOS Apple Silicon",
       "site": "curlgo.echovic.com",
       "github": "github.com/echoVic/curlgo",
-      "holdAfterNarrationSeconds": 5
+      "holdAfterNarrationSeconds": 3
     }
   },
-  "posterSha256": "5be451329f21d3d084752eb1aacde2264c5892d58d3d2c1fb2b837500d026ffd",
+  "posterSha256": "4634a06e8192c18186788f916930e7ecd6d19a109501f49ebeb3587e414a09ff",
   "captionsSha256": "9c1abd69da604bb7cd268fbd2d8c755f79082df2168f00796e1244664caa22aa",
   "audioMeasured": {
     "integratedLufs": -13.24,
@@ -111,7 +111,7 @@
     "naturalSpeechRate": true,
     "faststartAtoms": "passed",
     "captionInteriorBlankFrames": 0,
-    "constantStageCornerFrames": 1887,
+    "constantStageCornerFrames": 1827,
     "renderedKeyStills": [
       {
         "seconds": 1.0,
@@ -150,7 +150,7 @@
         "file": "out/key-summary.png"
       },
       {
-        "seconds": 62.86666666666667,
+        "seconds": 60.86666666666667,
         "file": "out/key-end.png"
       }
     ]

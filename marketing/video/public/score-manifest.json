@@ -1,15 +1,15 @@
 {
   "title": "Roundtrip",
-  "videoRevision": "flow-20261105-finale",
+  "videoRevision": "flow-20261105-finale-trim2",
   "arrangement": "72 BPM; half-density paired motif an octave lower; soft attack; no percussion",
   "originalSynthesis": true,
   "bpm": 72,
-  "durationSeconds": 62.9,
+  "durationSeconds": 60.9,
   "duckSource": "narration/continuous.m4a",
   "duckMethod": "20ms waveform RMS, 120ms look-ahead, 650ms release",
   "maximumReductionDb": -13.98,
   "minimumGain": 0.19999999999999996,
   "maximumGain": 1.0,
   "speechActiveSeconds": 54.29,
-  "peak": 0.048
+  "peak": 0.03868
 }

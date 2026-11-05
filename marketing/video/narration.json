@@ -1,10 +1,10 @@
 {
-  "videoRevision": "flow-20261105-finale",
+  "videoRevision": "flow-20261105-finale-trim2",
   "voice": "zh-CN-XiaoxiaoNeural",
   "rate": "+0%",
   "pitch": "+0Hz",
   "leadInSeconds": 0.6,
-  "tailSeconds": 5.0,
+  "tailSeconds": 3.0,
   "phrases": [
     {
       "text": "我们用 Curl Go 检查一个服务是否正常。",

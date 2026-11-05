@@ -86,7 +86,7 @@ def main():
         assert cap["measuredEndMs"] <= narration["end"] * 1000
         if i:
             assert caps[i-1]["endMs"] == cap["startMs"], "Caption holds must meet exactly"
-    assert narration["videoRevision"] == "flow-20261105-finale"
+    assert narration["videoRevision"] == "flow-20261105-finale-trim2"
     first_caption = round(caps[0]["startMs"] / 1000 * 30)
     last_caption = round(caps[-1]["endMs"] / 1000 * 30)
     blank_frames = sum(not any(round(c["startMs"] / 1000 * 30) <= f < round(c["endMs"] / 1000 * 30)
@@ -141,7 +141,7 @@ def main():
                     "nativeScreenshotSource": "Existing built CurlGo 0.1.1 macOS app disposable --dark --render",
                     "nativeScreenshotSha256": digest(PUBLIC / "curlgo-dark.png"),
                     "onScreenProvenanceLabel": False,
-                    "summaryCard": {"version": "0.1.1", "license": "MIT", "platform": "macOS Apple Silicon", "site": "curlgo.echovic.com", "github": "github.com/echoVic/curlgo", "holdAfterNarrationSeconds": 5}},
+                    "summaryCard": {"version": "0.1.1", "license": "MIT", "platform": "macOS Apple Silicon", "site": "curlgo.echovic.com", "github": "github.com/echoVic/curlgo", "holdAfterNarrationSeconds": 3}},
         "posterSha256": digest(PUBLIC / "curlgo-poster.jpg"),
         "captionsSha256": digest(PUBLIC / "captions-zh.vtt"),
         "audioMeasured": {"integratedLufs": float(measured["input_i"]), "truePeakDbtp": float(measured["input_tp"]), "lra": float(measured["input_lra"])},
