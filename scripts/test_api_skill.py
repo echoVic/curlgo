@@ -24,7 +24,6 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 
-ROOT = Path(__file__).resolve().parents[1]
 TOKEN = 'fixture-"quoted"\\token'
 MESSAGE = 'say "hello" \\path\n中文 {{literal}}'
 STATUS = {"source": "status", "operator": "equals", "expected": "200"}
@@ -393,7 +392,12 @@ class Scenarios(unittest.TestCase):
         exec(compile(self.recipe('Serial Login Chains'), "workflows.md:login", "exec"), namespace)
 
     def recipe(self, heading):
-        text = (ROOT / 'skills/api-test/references/workflows.md').read_text()
+        proc = subprocess.run([self.binary, 'skill', 'workflows'],
+                              capture_output=True, text=True, timeout=10)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertTrue(proc.stdout.endswith('[curlgo:skill] end of guide\n'),
+                        'Incomplete runtime workflows guide')
+        text = proc.stdout
         sections = re.split(r'^## ', text, flags=re.M)
         section = next((s for s in sections if s.splitlines()[0] == heading), None)
         self.assertIsNotNone(section, 'Missing runnable workflow: ' + heading)

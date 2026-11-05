@@ -44,11 +44,20 @@ type mainCLIEnvelope struct {
 }
 
 func TestMainCLIAcceptance(t *testing.T) {
+	mainCLIAcceptance(t, ".")
+}
+
+func TestStandaloneCLIAcceptance(t *testing.T) {
+	mainCLIAcceptance(t, "./cmd/curlgo")
+}
+
+func mainCLIAcceptance(t *testing.T, target string) {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 90*time.Second)
 	defer cancel()
 	dir := t.TempDir()
 	binary := filepath.Join(dir, "curlgo")
-	build := exec.CommandContext(ctx, "go", "build", "-o", binary, ".")
+	build := exec.CommandContext(ctx, "go", "build", "-o", binary, target)
 	build.Env = append(os.Environ(), "CGO_ENABLED=0")
 	build.WaitDelay = time.Second
 	if output, err := build.CombinedOutput(); err != nil {
@@ -88,6 +97,51 @@ func TestMainCLIAcceptance(t *testing.T) {
 		command.Dir = dir
 		command.WaitDelay = time.Second
 		return command
+	}
+
+	t.Run("embeddedSkillFromOutsideCheckout", func(t *testing.T) {
+		for _, topic := range []string{"", "cli-reference", "workflows", "assertions", "response-extraction", "project-secrets"} {
+			args := []string{"skill"}
+			if topic != "" {
+				args = append(args, topic)
+			}
+			command := newCommand(ctx, args...)
+			var stdout, stderr bytes.Buffer
+			command.Stdout, command.Stderr = &stdout, &stderr
+			if err := command.Run(); err != nil {
+				t.Fatalf("guide %q: %v stderr=%q", topic, err, stderr.String())
+			}
+			if len(stdout.Bytes()) < 500 || !strings.HasSuffix(stdout.String(), "[curlgo:skill] end of guide\n") || stderr.Len() != 0 {
+				t.Fatalf("incomplete embedded guide %q: %q", topic, stdout.String())
+			}
+		}
+	})
+	if target != "." {
+		t.Run("noArgumentsShowsHelp", func(t *testing.T) {
+			command := newCommand(ctx)
+			output, err := command.Output()
+			if err != nil {
+				t.Fatal(err)
+			}
+			value := mainCLIDecode(t, string(output))
+			if !value.OK || len(value.Help) == 0 {
+				t.Fatalf("expected standalone help: %s", output)
+			}
+		})
+		t.Run("unknownCommandIsSafeUsageError", func(t *testing.T) {
+			command := newCommand(ctx, "private_marker")
+			var stdout, stderr bytes.Buffer
+			command.Stdout, command.Stderr = &stdout, &stderr
+			err := command.Run()
+			var exit *exec.ExitError
+			if !errors.As(err, &exit) || exit.ExitCode() != 1 {
+				t.Fatalf("unknown command exit: %v", err)
+			}
+			value := mainCLIDecode(t, stdout.String())
+			if value.Error == nil || value.Error.Code != "INVALID_USAGE" || strings.Contains(stdout.String(), "private_marker") || stderr.Len() != 0 {
+				t.Fatalf("unsafe usage: %q stderr=%q", stdout.String(), stderr.String())
+			}
+		})
 	}
 
 	t.Run("machineReadableHelp", func(t *testing.T) {
@@ -355,6 +409,9 @@ func TestMainCLIAcceptance(t *testing.T) {
 		}
 	})
 
+	if target != "." {
+		return
+	}
 	t.Run("lightAndDarkRender", func(t *testing.T) {
 		var hashes [][32]byte
 		for _, dark := range []bool{false, true} {

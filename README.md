@@ -38,16 +38,25 @@
 
 ## Agent 与 CLI
 
-CLI 帮助、预检与 `curlgo run` 不启动 GUI，向 stdout 输出一个 `schemaVersion: 1` JSON 文档；普通 `run` 每次执行一个 HTTP / HTTPS 请求。先用 `command -v curlgo` 检查可执行文件；不存在时在仓库根目录构建同一应用，以下命令的 `curlgo` 均替换为 `/tmp/curlgo-api-test`，不要切换到第二个 HTTP 客户端：
+CLI 帮助、预检与 `curlgo run` 不启动 GUI，向 stdout 输出一个 `schemaVersion: 1` JSON 文档；普通 `run` 每次执行一个 HTTP / HTTPS 请求。先用 `command -v curlgo` 检查可执行文件；不存在时在仓库根目录构建独立 CLI，以下命令的 `curlgo` 均替换为 `/tmp/curlgo-api-test`，不要切换到第二个 HTTP 客户端：
 
 ```sh
-CGO_ENABLED=0 go build -o /tmp/curlgo-api-test .
+CGO_ENABLED=0 go build -o /tmp/curlgo-api-test ./cmd/curlgo
 ```
+
+[下载独立 CLI v0.1.0](https://github.com/echoVic/curlgo/releases/tag/cli-v0.1.0) · [CLI 与指南版本记录](internal/cli/CHANGELOG.md)
 
 ### 项目 Agent 能力
 
-通用 Agent Skill 源码位于 [skills/api-test/](skills/api-test/SKILL.md)，作为 CurlGo 的项目能力随版本维护；`references/` 随技能包含断言、响应提取和机密变量文档。维护这些文档时，同步更新 `docs/` 与对应的 `skills/api-test/references/` 副本。
+通用 Agent Skill 入口位于 [skills/api-test/](skills/api-test/SKILL.md)。它先通过 `curlgo help` 确认支持，再引导 Agent 执行 `curlgo skill`；完整指南、工作流和参考资料由 CLI 内置，随可执行文件一起升级，避免技能文件与实际能力错配。升级或切换 CLI 后应重新读取指南。桌面客户端独立版本、独立升级；CLI 与完整指南的版本在 `internal/cli/VERSION`，入口 skill 的版本只记录引导方式变化。
 
+```sh
+curlgo skill                  # 当前 CLI 自带的主指南
+curlgo skill workflows        # 请求构造、登录与业务链路示例
+curlgo skill cli-reference    # 当前版本的字段与选项说明
+```
+
+`skill` 输出 Markdown，最后一行为 `[curlgo:skill] end of guide`；它不启动 GUI、不读取 stdin、不访问目标接口或写入工作区。其他 CLI 帮助、预检和请求命令继续输出 JSON。指南源码位于 [internal/cli/guide/](internal/cli/guide/api-test.md)；维护断言、响应提取和机密变量时，同步更新 `docs/` 与这里的对应参考文档。
 以下命令由用户主动执行第三方 skills CLI。它会添加技能文件或链接；先在交互界面确认目标 agent、安装范围与路径，再完成安装。桌面端不会执行这些命令，也不会自动注册启动 hook 或批准信任。
 
 在仓库根目录可安装到 Claude Code 与 Codex：
@@ -62,16 +71,16 @@ npx skills add ./skills/api-test -a claude-code -a codex
 npx skills add echoVic/curlgo --skill api-test -a claude-code -a codex
 ```
 
-技能安装分发操作规范及参考文档，运行仍需要已安装的 CurlGo 可执行文件，或 Go 1.27.3 与 CurlGo 源码。源码构建命令须在 CurlGo 仓库根目录执行。
+技能安装只添加稳定入口与安装说明，不安装或升级 CLI。运行需要支持 `curlgo skill` 的可执行文件，或 Go 1.27.3 与 CurlGo 源码。源码构建命令须在 CurlGo 仓库根目录执行。独立 CLI 无参数时显示帮助；桌面可执行文件无参数仍启动 GUI。
 
 安装、查看安装范围和移除方法见[可选技能说明](docs/agent-skill.md)。卸载桌面应用不会移除你另外安装的技能。
 
-技能入口按任务选择参考文档；[请求与业务链路示例](skills/api-test/references/workflows.md)提供 JSON 正文序列化、查询编码、私有令牌串联、文件响应读取，以及创建→完成→查询的串行示例。链路显式传递返回 ID、保留私有步骤证据，并以最终对象与状态判断整体验收。给定 diff 或 commit 时，技能按变更选择相关接口和断言，简述后执行，无需单独编写测试计划。`request.body` 是字符串，变量替换不会做 JSON 转义；CLI 查询参数以 `request.url` 为准，`request.queryParams` 只用于编辑器元数据。
+运行时指南按任务选择参考主题；`curlgo skill workflows`（[源码](internal/cli/guide/workflows.md)）提供 JSON 正文序列化、查询编码、私有令牌串联、文件响应读取，以及创建→完成→查询的串行示例。链路显式传递返回 ID、保留私有步骤证据，并以最终对象与状态判断整体验收。给定 diff 或 commit 时，技能按变更选择相关接口和断言，简述后执行，无需单独编写测试计划。`request.body` 是字符串，变量替换不会做 JSON 转义；CLI 查询参数以 `request.url` 为准，`request.queryParams` 只用于编辑器元数据。
 
 维护者可在仓库根目录复跑真实 CLI 场景。脚本使用 Python 标准库启动临时本地 HTTP 服务，验证登录、Cookie、上传字节、大响应、失败诊断，并直接执行技能文档中的 Python 例子。业务链路覆盖成功、前置业务失败后不再发送后续请求，以及全部返回 2xx 但最终状态、对象 ID 或业务字段不符的情况；本地 fixture 不代表真实业务系统验收。测试临时文件自动清理；TLS 场景需要系统 `openssl`，缺失时明确跳过：
 
 ```sh
-CGO_ENABLED=0 go build -o /tmp/curlgo-api-test .
+CGO_ENABLED=0 go build -o /tmp/curlgo-api-test ./cmd/curlgo
 python3 scripts/test_api_skill.py --binary /tmp/curlgo-api-test
 ```
 

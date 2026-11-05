@@ -73,6 +73,8 @@ func Dispatch(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, ar
 	}
 	var root bool
 	switch args[0] {
+	case "skill":
+		return skill(stdout, stderr, args[1:]), true
 	case "run":
 		return Run(ctx, stdin, stdout, stderr, args[1:]), true
 	case "help":
@@ -101,6 +103,7 @@ func Dispatch(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, ar
 			"curlgo",
 			"curlgo run (--request path | --curl path) [options]",
 			"curlgo help [run]",
+			"curlgo skill [topic]",
 			"curlgo -h | --help",
 		}
 	}

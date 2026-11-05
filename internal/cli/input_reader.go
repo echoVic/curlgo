@@ -1,9 +1,15 @@
-package main
+package cli
 
 import (
 	"context"
 	"io"
 )
+
+// NewInterruptibleInput wraps process stdin so cancellation can end a command.
+// A blocked OS read can outlive cancellation until the process exits.
+func NewInterruptibleInput(ctx context.Context, reader io.Reader) io.Reader {
+	return interruptibleStdin{ctx: ctx, reader: reader}
+}
 
 // interruptibleStdin is process-scoped: a blocked OS read can outlive
 // cancellation only until main exits. Help never calls Read.

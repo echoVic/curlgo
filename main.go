@@ -21,7 +21,7 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "run" {
 		ctx, stop = signal.NotifyContext(ctx, os.Interrupt)
 	}
-	stdin := interruptibleStdin{ctx: ctx, reader: os.Stdin}
+	stdin := cli.NewInterruptibleInput(ctx, os.Stdin)
 	exit, handled := cli.Dispatch(ctx, stdin, os.Stdout, os.Stderr, os.Args[1:])
 	if stop != nil {
 		stop()

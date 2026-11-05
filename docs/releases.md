@@ -2,6 +2,27 @@
 
 The desktop version is set in `mygo.json`. Release notes are the matching version section of `CHANGELOG.md`. Build from a clean commit and annotated tag; keep the source revision with the release evidence.
 
+## Standalone CLI and embedded guide
+
+The standalone CLI and complete Agent guide share the version in `internal/cli/VERSION` and the [CLI changelog](../internal/cli/CHANGELOG.md). The guide and all references in `internal/cli/guide/` are embedded in the binary at build time. `curlgo skill [topic]` reads those resources, never local copies installed by a skills tool. Bump the CLI version when releasing changes to its behavior or full guide; desktop-only changes do not require a CLI version bump.
+
+Build the CLI independently from the desktop app:
+
+```sh
+go test ./...
+go vet ./...
+CGO_ENABLED=0 go build -trimpath -o build/agent-cli/curlgo ./cmd/curlgo
+build/agent-cli/curlgo skill
+build/agent-cli/curlgo skill workflows
+python3 scripts/test_api_skill.py --binary build/agent-cli/curlgo
+```
+
+The CLI has no GUI dependency. With no arguments it displays JSON help; the desktop executable still opens its GUI with no arguments. Both share CLI/core code and embed the same guide from their source revision. Replacing the standalone binary upgrades its full guide at the same time, without a separate reference-file installation step. The `skill` header identifies the embedded runtime/guide version, which can differ from the desktop package version.
+
+Use `v<version>` for desktop releases and `cli-v<version>` for independent CLI releases. CLI releases include platform-specific standalone binaries and checksums, plus `LICENSE` and `THIRD_PARTY_NOTICES.txt`. The first release targets macOS, Linux, and Windows on arm64 and amd64; only the local macOS arm64 binary is exercised on this release machine. macOS executables are Developer ID signed. The first CLI release is not notarized because the configured notarization credential profile is unavailable on this release machine; disclose that status in the release notes. Future releases should complete notarization when credentials are available. Keep CLI releases off the repository's latest-release channel: the desktop updater downloads its manifest through `releases/latest`. Do not publish a CLI-only or bootstrap-only release as latest. The standalone CLI has no automatic updater; users replace its executable using a verified release archive.
+
+The separately installed `skills/api-test/` directory contains only a stable bootstrap, installation guidance, and its own [bootstrap changelog](../skills/api-test/CHANGELOG.md). Its `metadata.version` tracks changes to that entry point, not CLI features. Updating it does not install or upgrade a binary. A guide-only update ships with the CLI; users re-read `curlgo skill` after upgrading or switching executables. See [installation and upgrades](agent-skill.md).
+
 ## Signing updates
 
 The public update key is committed in `mygo.json`. Its dedicated private key is outside the repository, under `~/Library/Application Support/CurlGo/update-keys/mygo-update.key` on the release machine. Keep an encrypted backup: future versions must use the same key so installed apps can verify them. Do not generate a replacement for routine releases.

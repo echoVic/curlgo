@@ -1,5 +1,11 @@
 # Changelog
 
+## CLI 0.1.0 - 2026-11-06
+
+- Add `curlgo skill [topic]` to read the complete API Test guide and references embedded in the executable.
+- Replace the separately installed Agent skill with a stable bootstrap that reads instructions from the actual CLI.
+- Add a standalone `./cmd/curlgo` build, with its CLI/guide version tracked independently from desktop packaging.
+
 ## 0.1.1 - 2026-11-04
 
 - Add an application settings page with the current version, appearance, a manual update check, and preferences for background checks and automatic downloads.
