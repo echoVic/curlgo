@@ -82,24 +82,41 @@ def main():
     assert not decode.stderr.strip(), decode.stderr
     caps = json.loads((PUBLIC / "captions-zh.json").read_text())
     for i, cap in enumerate(caps):
-        assert cap["text"] and 0 <= cap["startMs"] < cap["endMs"] <= narration["end"] * 1000
+        assert cap["text"] and 0 <= cap["startMs"] < cap["endMs"] <= narration["durationSeconds"] * 1000
+        assert cap["measuredEndMs"] <= narration["end"] * 1000
         if i:
-            assert caps[i-1]["endMs"] <= cap["startMs"]
+            assert caps[i-1]["endMs"] == cap["startMs"], "Caption holds must meet exactly"
+    assert narration["videoRevision"] == "flow-20261105"
+    first_caption = round(caps[0]["startMs"] / 1000 * 30)
+    last_caption = round(caps[-1]["endMs"] / 1000 * 30)
+    blank_frames = sum(not any(round(c["startMs"] / 1000 * 30) <= f < round(c["endMs"] / 1000 * 30)
+                               for c in caps) for f in range(first_caption, last_caption))
+    assert blank_frames == 0, "No blank caption frames between first and last cue"
     assert (PUBLIC / "captions-zh.vtt").read_text().count(" --> ") == len(caps)
-    stills = [(5.0, "opening"), (15.5, "request"), (29.5, "response"),
-              (34.5, "verify"), (38.8, "extract"), (48.0, "skill"),
-              (54.5, "preflight"), (63.5, "closing"), (68.4, "end")]
+    stills = [(1.0, "opening"), (5.5, "request"), (12.0, "response"),
+              (18.0, "verify"), (23.5, "extract"), (34.0, "skill"),
+              (40.0, "preflight"), (48.0, "closing"), (51.0, "end")]
     for seconds, label in stills:
         run(["ffmpeg", "-v", "error", "-y", "-ss", str(seconds), "-i", str(target),
              "-frames:v", "1", str(OUT / f"key-{label}.png")])
-    run(["ffmpeg", "-v", "error", "-y", "-ss", "15.5", "-i", str(target),
+    run(["ffmpeg", "-v", "error", "-y", "-ss", "23.5", "-i", str(target),
          "-frames:v", "1", "-q:v", "2", str(PUBLIC / "curlgo-poster.jpg")])
+    corner = subprocess.run(["ffmpeg", "-v", "error", "-i", str(target), "-vf",
+                             "crop=8:8:0:0,format=rgb24", "-f", "rawvideo", "-"],
+                            check=True, capture_output=True).stdout
+    frame_bytes = 8 * 8 * 3
+    assert len(corner) == narration["durationInFrames"] * frame_bytes
+    assert all(corner[f:f+frame_bytes] == corner[:frame_bytes]
+               for f in range(0, len(corner), frame_bytes)), "Stage corner must stay constant throughout"
     loudness = run(["ffmpeg", "-hide_banner", "-i", str(target), "-af",
                     "loudnorm=I=-16:TP=-1:LRA=11:print_format=json", "-f", "null", "-"])
     measured, _ = json.JSONDecoder().raw_decode(loudness.stderr[loudness.stderr.rfind("{"):])
     assert float(measured["input_tp"]) <= -1
+    rhythm = json.loads((OUT / "speech-rhythm-comparison.json").read_text())
+    score = json.loads((PUBLIC / "score-manifest.json").read_text())
     metadata = {
         "title": "CurlGo — 从一条请求开始", "version": "0.1.1",
+        "videoRevision": "flow-20261105",
         "composition": "CurlGoRoundtrip", "durationSeconds": float(video["duration"]),
         "width": video["width"], "height": video["height"], "fps": 30,
         "frames": int(video["nb_frames"]), "videoCodec": "h264",
@@ -107,18 +124,33 @@ def main():
         "moovOffset": moov, "mdatOffset": mdat,
         "bytes": target.stat().st_size, "sha256": digest(target),
         "video": target.name, "poster": "curlgo-poster.jpg",
-        "posterFrameSeconds": 15.5, "captions": "captions-zh.vtt",
+        "posterFrameSeconds": 23.5, "captions": "captions-zh.vtt",
         "language": "zh-CN", "captionCount": len(caps),
-        "narration": {k: narration[k] for k in ["voice", "rate", "pitch", "takeCount", "playbackRate", "timeStretch", "duration", "boundarySource"]},
+        "narration": {k: narration[k] for k in ["voice", "rate", "pitch", "takeCount", "playbackRate", "timeStretch", "duration", "boundarySource", "paragraphCount", "wordCount", "captionHold"]},
+        "narrationSha256": digest(PUBLIC / narration["audio"]),
+        "speechRhythm": {"thresholdDb": -38, "minimumSilenceSeconds": .25,
+                         **{name: {k: data[k] for k in ["durationSeconds", "silenceCount", "silenceSeconds", "silencePercentage", "interiorPauseCount", "interiorPauseSeconds", "interiorPausePercentage"]}
+                            for name, data in [("old", rhythm["old"]), ("new", rhythm["new"])]},
+                         "limitation": rhythm["limitation"]},
+        "score": score,
+        "visuals": {"stageColor": "#0c3038", "persistentWorkbench": True,
+                    "camera": "Monotonic scale 1 to 1.018; no pan or returning moves",
+                    "titleCount": 2, "nativeScreenshot": "curlgo-dark.png",
+                    "nativeScreenshotSource": "Existing built CurlGo 0.1.1 macOS app disposable --dark --render",
+                    "nativeScreenshotSha256": digest(PUBLIC / "curlgo-dark.png"),
+                    "illustrationLabel": "原生深色界面截图 · 地址、响应与交互为示意，非真实录屏"},
         "posterSha256": digest(PUBLIC / "curlgo-poster.jpg"),
         "captionsSha256": digest(PUBLIC / "captions-zh.vtt"),
         "audioMeasured": {"integratedLufs": float(measured["input_i"]), "truePeakDbtp": float(measured["input_tp"]), "lra": float(measured["input_lra"])},
         "validation": {"webColorRange": "limited BT.709 yuv420p", "audioCopyNoTimeChange": True, "fullDecode": "passed", "captionsOrderedNonoverlapping": True,
                        "naturalSpeechRate": True, "faststartAtoms": "passed",
+                       "captionInteriorBlankFrames": blank_frames,
+                       "constantStageCornerFrames": narration["durationInFrames"],
                        "renderedKeyStills": [{"seconds": s, "file": f"out/key-{label}.png"} for s, label in stills]},
         "website": {"preload": "none", "controls": True, "playsInline": True,
                     "trackKind": "captions", "trackLabel": "简体中文"},
         "claims": "Native workspace is real; response data and CLI interaction are labelled illustrations. Closing version is 0.1.1; no updater availability claim.",
+        "limitations": ["No human listening review", "Local media validation; production HTTP Range and browser playback await website integration"],
     }
     (PUBLIC / "video-metadata.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n")
     (OUT / "SHA256SUMS").write_text("\n".join(f"{digest(PUBLIC / name)}  public/{name}" for name in [target.name, "curlgo-poster.jpg", "captions-zh.vtt", "video-metadata.json"]) + "\n")

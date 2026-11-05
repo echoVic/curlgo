@@ -1,57 +1,44 @@
 {
-  "voice": "zh-CN-YunxiNeural",
+  "videoRevision": "flow-20261105",
+  "voice": "zh-CN-XiaoxiaoNeural",
   "rate": "+0%",
   "pitch": "+0Hz",
-  "leadInSeconds": 0.7,
-  "tailSeconds": 3.0,
+  "leadInSeconds": 0.6,
+  "tailSeconds": 2.4,
   "phrases": [
-    { "text": "调试接口的时候，", "beat": "opening" },
-    { "text": "我们真正想做的，其实很简单：" },
-    { "text": "发出请求，看看响应，" },
-    { "text": "再确认结果对不对。" },
     {
-      "text": "Curl Go 把这件事，",
-      "caption": "CurlGo 把这件事",
-      "beat": "workspace"
+      "text": "我们用 Curl Go 检查一个服务是否正常。",
+      "caption": "我们用 CurlGo 检查一个服务是否正常",
+      "beat": "opening",
+      "paragraph": 1
     },
-    { "text": "放进一个轻量的原生工作区。" },
-    { "text": "打开以后，粘贴地址，", "beat": "request" },
-    { "text": "或者导入已有的请求，就可以开始。" },
-    { "text": "无需注册账号，", "beat": "local" },
-    { "text": "草稿、收藏和历史，都保存在本机。" },
-    { "text": "比如这次健康检查，", "beat": "send" },
-    { "text": "请求发出后，先看状态码，" },
-    { "text": "再读返回的数据。", "beat": "response" },
+    { "text": "把健康检查的地址放进工作区", "beat": "address" },
+    { "text": "就能直接发出请求。", "beat": "send" },
     {
-      "text": "收到两百，并不代表业务一定成功。",
-      "caption": "收到 200，并不代表业务一定成功"
+      "text": "这次返回的状态码是两百，",
+      "caption": "这次返回的状态码是 200",
+      "beat": "response",
+      "paragraph": 2
     },
-    { "text": "我们还可以加上断言，", "beat": "verify" },
-    { "text": "检查关键字段；" },
-    { "text": "验证通过，再提取变量，", "beat": "extract" },
-    { "text": "接着跑下一条请求。" },
-    { "text": "普通接口之外，", "beat": "protocols" },
+    { "text": "不过我们还需要看看数据中的成功标记。" },
+    { "text": "给这条请求加上断言", "beat": "verify" },
+    { "text": "就可以一起检查状态码和业务字段。" },
+    { "text": "两项检查都通过以后", "beat": "extract", "paragraph": 3 },
+    { "text": "再把返回的编号保存成变量。" },
+    { "text": "下一条请求可以继续用这个变量", "beat": "next" },
+    { "text": "不用来回复制响应里的内容。" },
     {
-      "text": "事件流和网页套接字，也能在这里调试。",
-      "caption": "SSE 事件流和 WebSocket，也能在这里调试"
-    },
-    { "text": "如果你想让人工智能帮忙，", "beat": "skill" },
-    {
-      "text": "可以主动安装接口测试技能，",
-      "caption": "可以主动安装 API Test Skill"
+      "text": "如果想把同样的检查交给人工智能",
+      "beat": "skill",
+      "paragraph": 4
     },
     {
-      "text": "让它通过命令行调用 Curl Go。",
-      "caption": "让它通过命令行调用 CurlGo"
+      "text": "可以另外安装接口测试技能。",
+      "caption": "可以另外安装 API Test Skill"
     },
-    { "text": "先在本地预检，确认配置，", "beat": "preflight" },
-    { "text": "再决定是否发送。" },
-    { "text": "工具怎么接入，由你选择。", "beat": "choice" },
-    {
-      "text": "Curl Go 已经开源。",
-      "caption": "CurlGo 已经开源",
-      "beat": "closing"
-    },
-    { "text": "下载后，从你手边的一条请求开始。" }
+    { "text": "先让它通过命令行检查请求配置", "beat": "preflight" },
+    { "text": "确认无误后再决定是否发送。" },
+    { "text": "从桌面调试到命令行验证" },
+    { "text": "始终围绕你手边的这一条请求。", "beat": "closing" }
   ]
 }

@@ -1,42 +1,95 @@
 {
   "title": "CurlGo — 从一条请求开始",
   "version": "0.1.1",
+  "videoRevision": "flow-20261105",
   "composition": "CurlGoRoundtrip",
-  "durationSeconds": 69.0,
+  "durationSeconds": 51.4,
   "width": 1920,
   "height": 1080,
   "fps": 30,
-  "frames": 2070,
+  "frames": 1542,
   "videoCodec": "h264",
   "audioCodec": "aac",
   "pixelFormat": "yuv420p",
   "faststart": true,
   "moovOffset": 32,
-  "mdatOffset": 76251,
-  "bytes": 22883764,
-  "sha256": "fe1cfa639d407e36229ecb54f38545fd4c4be53a8eb3abcc190d256c23773dcf",
+  "mdatOffset": 58039,
+  "bytes": 5033704,
+  "sha256": "6254255e8c87ee10967972202dfa43277817af8cdb7690ce1d311883b06a8f14",
   "video": "curlgo-roundtrip-zh.mp4",
   "poster": "curlgo-poster.jpg",
-  "posterFrameSeconds": 15.5,
+  "posterFrameSeconds": 23.5,
   "captions": "captions-zh.vtt",
   "language": "zh-CN",
-  "captionCount": 28,
+  "captionCount": 17,
   "narration": {
-    "voice": "zh-CN-YunxiNeural",
+    "voice": "zh-CN-XiaoxiaoNeural",
     "rate": "+0%",
     "pitch": "+0Hz",
     "takeCount": 1,
     "playbackRate": 1,
     "timeStretch": false,
-    "duration": 65.3,
-    "boundarySource": "Edge TTS WordBoundary from this exact audio stream"
+    "duration": 48.4,
+    "boundarySource": "Edge TTS WordBoundary from this exact audio stream",
+    "paragraphCount": 4,
+    "wordCount": 124,
+    "captionHold": "continuous until next measured start"
   },
-  "posterSha256": "f9281baa84af4ae57884287d7edd205a2ff132a2276ba13b04a97cfcec268dc4",
-  "captionsSha256": "66ea263fd0d931921e345584bdb6367542f42b96894cd236189c1d922e2d3408",
+  "narrationSha256": "a9a7168d1040a8f3a79a5dd92831fdb2b14b4ca9cf0a60ccdce5dc58948594f9",
+  "speechRhythm": {
+    "thresholdDb": -38,
+    "minimumSilenceSeconds": 0.25,
+    "old": {
+      "durationSeconds": 65.3,
+      "silenceCount": 40,
+      "silenceSeconds": 19.543691,
+      "silencePercentage": 29.929082695252678,
+      "interiorPauseCount": 39,
+      "interiorPauseSeconds": 18.642691000000003,
+      "interiorPausePercentage": 28.549297090352226
+    },
+    "new": {
+      "durationSeconds": 48.4,
+      "silenceCount": 9,
+      "silenceSeconds": 5.830916000000003,
+      "silencePercentage": 12.047347107438023,
+      "interiorPauseCount": 8,
+      "interiorPauseSeconds": 5.2369370000000055,
+      "interiorPausePercentage": 10.820117768595054
+    },
+    "limitation": "Silence detection measures rhythm, not perceived fluency. No human listening review is claimed. No detected silence was cut or time-compressed."
+  },
+  "score": {
+    "title": "Roundtrip",
+    "videoRevision": "flow-20261105",
+    "arrangement": "72 BPM; half-density paired motif an octave lower; soft attack; no percussion",
+    "originalSynthesis": true,
+    "bpm": 72,
+    "durationSeconds": 51.4,
+    "duckSource": "narration/continuous.m4a",
+    "duckMethod": "20ms waveform RMS, 120ms look-ahead, 650ms release",
+    "maximumReductionDb": -13.98,
+    "minimumGain": 0.19999999999999996,
+    "maximumGain": 1.0,
+    "speechActiveSeconds": 46.076,
+    "peak": 0.02135
+  },
+  "visuals": {
+    "stageColor": "#0c3038",
+    "persistentWorkbench": true,
+    "camera": "Monotonic scale 1 to 1.018; no pan or returning moves",
+    "titleCount": 2,
+    "nativeScreenshot": "curlgo-dark.png",
+    "nativeScreenshotSource": "Existing built CurlGo 0.1.1 macOS app disposable --dark --render",
+    "nativeScreenshotSha256": "e31cb5b6dcf0388558f78e7e3cc3522d3e082ed0de41348e95b2f6d5ec8abf89",
+    "illustrationLabel": "原生深色界面截图 · 地址、响应与交互为示意，非真实录屏"
+  },
+  "posterSha256": "e54e5fb3bf15e0079f3e15e68dd4bd5ee2a6664238b342e9f2c7993270e64f4a",
+  "captionsSha256": "cf67032120541c001f2cedd8728d025cce5d6c7c93a478ad64f55d5a03c29560",
   "audioMeasured": {
-    "integratedLufs": -14.61,
-    "truePeakDbtp": -1.85,
-    "lra": 3.8
+    "integratedLufs": -13.24,
+    "truePeakDbtp": -1.97,
+    "lra": 2.0
   },
   "validation": {
     "webColorRange": "limited BT.709 yuv420p",
@@ -45,41 +98,43 @@
     "captionsOrderedNonoverlapping": true,
     "naturalSpeechRate": true,
     "faststartAtoms": "passed",
+    "captionInteriorBlankFrames": 0,
+    "constantStageCornerFrames": 1542,
     "renderedKeyStills": [
       {
-        "seconds": 5.0,
+        "seconds": 1.0,
         "file": "out/key-opening.png"
       },
       {
-        "seconds": 15.5,
+        "seconds": 5.5,
         "file": "out/key-request.png"
       },
       {
-        "seconds": 29.5,
+        "seconds": 12.0,
         "file": "out/key-response.png"
       },
       {
-        "seconds": 34.5,
+        "seconds": 18.0,
         "file": "out/key-verify.png"
       },
       {
-        "seconds": 38.8,
+        "seconds": 23.5,
         "file": "out/key-extract.png"
       },
       {
-        "seconds": 48.0,
+        "seconds": 34.0,
         "file": "out/key-skill.png"
       },
       {
-        "seconds": 54.5,
+        "seconds": 40.0,
         "file": "out/key-preflight.png"
       },
       {
-        "seconds": 63.5,
+        "seconds": 48.0,
         "file": "out/key-closing.png"
       },
       {
-        "seconds": 68.4,
+        "seconds": 51.0,
         "file": "out/key-end.png"
       }
     ]
@@ -91,5 +146,9 @@
     "trackKind": "captions",
     "trackLabel": "简体中文"
   },
-  "claims": "Native workspace is real; response data and CLI interaction are labelled illustrations. Closing version is 0.1.1; no updater availability claim."
+  "claims": "Native workspace is real; response data and CLI interaction are labelled illustrations. Closing version is 0.1.1; no updater availability claim.",
+  "limitations": [
+    "No human listening review",
+    "Local media validation; production HTTP Range and browser playback await website integration"
+  ]
 }

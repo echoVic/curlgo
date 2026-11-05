@@ -15,7 +15,7 @@ import numpy as np
 RATE = 44100
 MANIFEST = json.loads((Path(__file__).resolve().parents[1] / "public/narration/manifest.json").read_text())
 DURATION = MANIFEST["durationSeconds"]
-BPM = 96
+BPM = 72
 BEAT = 60 / BPM
 ROOT = Path(__file__).resolve().parents[1]
 rng = np.random.default_rng(143)
@@ -39,8 +39,8 @@ def add(time, signal, level=1, pan=0):
 def pluck(note, length=1.3):
     t = np.arange(round(RATE * length)) / RATE
     f = hz(note)
-    envelope = np.minimum(1, t / .006) * np.exp(-t * 5.2)
-    return envelope * (np.sin(2*np.pi*f*t) + .18*np.sin(2*np.pi*2*f*t) + .04*np.sin(2*np.pi*3*f*t))
+    envelope = np.minimum(1, t / .035) * np.exp(-t * 2.9)
+    return envelope * (np.sin(2*np.pi*f*t) + .06*np.sin(2*np.pi*2*f*t))
 
 
 chords = [(50, 57, 62, 66, 69), (47, 54, 59, 62, 66), (43, 50, 55, 59, 62), (45, 52, 57, 61, 64)]
@@ -52,22 +52,15 @@ for bar in range(int(np.ceil(DURATION / (BEAT * 4)))):
     pad = sum(np.sin(2*np.pi*hz(n+12)*t) for n in chord[1:]) / 4
     add(start, pad * env, .024, -.1)
     if bar > 1:
-        for beat in [0, 2.5]:
+        for beat in [0]:
             tb = np.arange(round(RATE*.7))/RATE
             bass = np.sin(2*np.pi*hz(chord[0]-12)*tb) * np.minimum(1,tb/.012) * np.exp(-tb*5)
-            add(start+beat*BEAT, bass, .085)
+            add(start+beat*BEAT, bass, .040)
     # A short question on the left; its answer arrives on the right.
-    note = chord[3] + 12
-    add(start + BEAT*.5, pluck(note), .105, -.38)
-    add(start + BEAT*1.5, pluck(chord[2]+12), .08, .38)
-    if bar % 4 == 3:
-        add(start + BEAT*3, pluck(chord[4]+12), .055, .15)
-    if 3 <= bar < 25:
-        for beat in [1, 3]:
-            th = np.arange(round(RATE*.09))/RATE
-            noise = rng.normal(0,1,len(th))
-            tick = np.diff(noise, prepend=0) * np.exp(-th*75)
-            add(start + beat*BEAT, tick, .007, .1)
+    note = chord[3]
+    if bar % 2 == 0:
+        add(start + BEAT*.5, pluck(note, 2.0), .065, -.2)
+        add(start + BEAT*2, pluck(chord[2], 2.0), .050, .2)
 
 time = np.arange(len(music)) / RATE
 # Duck from the real continuous waveform, not obsolete scene windows.
@@ -92,12 +85,13 @@ speech_times = MANIFEST["from"] + np.arange(len(activity)) * .02
 active = np.interp(time, speech_times, smoothed, left=0, right=0)
 duck = 1 - .80 * active
 fade = np.minimum(np.clip(time/1.2,0,1), np.clip((DURATION-time)/2.2,0,1))
-music *= (1.3 * duck * fade)[:,None]
+music *= (.8 * duck * fade)[:,None]
 peak = np.abs(music).max()
 if peak > .8:
     music *= .8/peak
 (ROOT / "public/score-manifest.json").write_text(json.dumps({
-    "title": "Roundtrip", "originalSynthesis": True, "bpm": BPM,
+    "title": "Roundtrip", "videoRevision": MANIFEST["videoRevision"],
+    "arrangement": "72 BPM; half-density paired motif an octave lower; soft attack; no percussion", "originalSynthesis": True, "bpm": BPM,
     "durationSeconds": DURATION, "duckSource": MANIFEST["audio"],
     "duckMethod": "20ms waveform RMS, 120ms look-ahead, 650ms release",
     "maximumReductionDb": round(20*np.log10(.2), 2),

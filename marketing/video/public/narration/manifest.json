@@ -1,74 +1,65 @@
 {
-  "voice": "zh-CN-YunxiNeural",
+  "videoRevision": "flow-20261105",
+  "voice": "zh-CN-XiaoxiaoNeural",
   "rate": "+0%",
   "pitch": "+0Hz",
   "takeCount": 1,
   "playbackRate": 1,
   "timeStretch": false,
-  "scriptSha256": "14f0d4e617a2e49368ecff69beb08b0e049127409ea2580dfef56078d5715d20",
+  "scriptSha256": "94f73b896260946c4b964cf4b549901d848ee5cb9d0f8d34be3280f6362d725c",
   "audio": "narration/continuous.m4a",
-  "from": 0.7,
-  "duration": 65.3,
-  "rawDuration": 65.28,
-  "end": 66.0,
-  "durationInFrames": 2070,
+  "from": 0.6,
+  "duration": 48.4,
+  "rawDuration": 48.384,
+  "end": 49.0,
+  "durationInFrames": 1542,
   "fps": 30,
-  "durationSeconds": 69.0,
+  "durationSeconds": 51.4,
   "boundarySource": "Edge TTS WordBoundary from this exact audio stream",
-  "wordCount": 154,
-  "captionCount": 28,
+  "paragraphCount": 4,
+  "captionHold": "continuous until next measured start",
+  "wordCount": 124,
+  "captionCount": 17,
   "beats": [
     {
       "id": "opening",
-      "seconds": 0.35
+      "seconds": 0.25
     },
     {
-      "id": "workspace",
-      "seconds": 8.562
-    },
-    {
-      "id": "request",
-      "seconds": 12.775
-    },
-    {
-      "id": "local",
-      "seconds": 17.938
+      "id": "address",
+      "seconds": 3.962
     },
     {
       "id": "send",
-      "seconds": 23.1
+      "seconds": 6.763
     },
     {
       "id": "response",
-      "seconds": 27.562
+      "seconds": 8.938
     },
     {
       "id": "verify",
-      "seconds": 32.85
+      "seconds": 15.288
     },
     {
       "id": "extract",
-      "seconds": 35.962
+      "seconds": 20.65
     },
     {
-      "id": "protocols",
-      "seconds": 40.212
+      "id": "next",
+      "seconds": 25.637
     },
     {
       "id": "skill",
-      "seconds": 45.237
+      "seconds": 31.025
     },
     {
       "id": "preflight",
-      "seconds": 52.162
-    },
-    {
-      "id": "choice",
-      "seconds": 56.7
+      "seconds": 36.887
     },
     {
       "id": "closing",
-      "seconds": 59.512
+      "seconds": 45.575
     }
   ]
 }

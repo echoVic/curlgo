@@ -87,15 +87,15 @@ async def main():
         captions.append({
             "text": phrase.get("caption", phrase["text"].rstrip("，。；：")),
             "startMs": round(start_ms), "endMs": round(end_ms),
-            "timestampMs": round(start_ms), "confidence": None,
+            "timestampMs": round(start_ms), "confidence": None, "measuredEndMs": round(end_ms),
         })
         if "beat" in phrase:
             beats.append({"id": phrase["beat"], "seconds": round(max(0, start_ms / 1000 - .45), 3)})
         cursor = end
-    # A small reading hold follows the measured last word, without overlap.
+    # Hold each caption until the next measured cue begins: no flickering gaps.
     for i, cap in enumerate(captions):
         next_start = captions[i+1]["startMs"] if i+1 < len(captions) else float("inf")
-        cap["endMs"] = min(cap["endMs"] + 160, next_start)
+        cap["endMs"] = next_start if i+1 < len(captions) else cap["endMs"] + 400
     target = OUTPUT / "continuous.m4a"
     subprocess.run([
         "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(raw),
@@ -109,6 +109,7 @@ async def main():
     total = CONFIG["leadInSeconds"] + processed + CONFIG["tailSeconds"]
     frames = round(total * 30 + .499999)
     manifest = {
+        "videoRevision": CONFIG["videoRevision"],
         "voice": CONFIG["voice"], "rate": CONFIG["rate"], "pitch": CONFIG["pitch"],
         "takeCount": 1, "playbackRate": 1, "timeStretch": False,
         "scriptSha256": digest, "audio": "narration/continuous.m4a",
@@ -116,6 +117,7 @@ async def main():
         "rawDuration": natural, "end": CONFIG["leadInSeconds"] + processed,
         "durationInFrames": frames, "fps": 30, "durationSeconds": frames / 30,
         "boundarySource": "Edge TTS WordBoundary from this exact audio stream",
+        "paragraphCount": 4, "captionHold": "continuous until next measured start",
         "wordCount": len(words), "captionCount": len(captions), "beats": beats,
     }
     (OUTPUT / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
