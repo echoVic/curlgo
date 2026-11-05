@@ -11,7 +11,7 @@
   "macos": {
     "signingIdentity": "Developer ID Application: Zijie Hu (8LH7PFQJ89)",
     "notarize": {
-      "keychainProfile": "clipnest-notary"
+      "keychainProfile": "notary"
     }
   },
   "updates": {
