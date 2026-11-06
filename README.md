@@ -14,7 +14,7 @@
 
 ## 下载与开始使用
 
-首个安装包面向 macOS Apple Silicon（M 系列芯片）。从 Release 下载 DMG，打开后将 CurlGo 拖入 Applications。安装包使用 Developer ID 签名并经过 Apple 公证，校验和随 Release 提供。其他平台当前提供源码。
+macOS Apple Silicon（M 系列芯片）从 Release 下载 DMG，打开后将 CurlGo 拖入 Applications；安装包使用 Developer ID 签名并经过 Apple 公证，校验和随 Release 提供。Windows 提供 x64 / ARM64 免安装 ZIP（当前未签名，SmartScreen 可能提示）：解压后运行 CurlGo.exe。Linux 与 Intel Mac 当前提供源码。
 
 打开后粘贴 curl，或点击「导入 curl / 集合」导入 Postman v2.1 / Bruno 集合；先查看预览，再加入收藏。集合中的脚本不会执行，依赖脚本的工作流需要另行迁移。
 

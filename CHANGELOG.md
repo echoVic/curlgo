@@ -6,6 +6,7 @@
 - 修复 Windows 上快捷键提示固定显示 ⌘ 的问题；地址栏等输入框获得焦点时，发送/停止等快捷键现在也能触发；发送按钮不再截断 Windows 与自定义组合的标签。
 - 修复 Windows 上 curl 导入页「导入请求 / 从剪贴板粘贴」按钮点击无响应的问题（文本区域命中区域与按钮行重叠）。
 - Windows 兼容性修复：`go test ./...` 现在可在 Windows 11 通过（测试夹具的 POSIX 权限/路径/TMPDIR/symlink/.exe 等假设按平台处理），`scripts/native_qa_fixture.py` 显式以 UTF-8 写文件，`scripts/test_api_skill.py` 的 POSIX 权限断言在 Windows 自动跳过。
+- 提供 Windows x64 / ARM64 免安装 ZIP（未签名，附在 GitHub Release）；macOS 继续提供 Developer ID 签名并公证的 DMG。
 
 ## CLI 0.1.0 - 2026-11-06
 
