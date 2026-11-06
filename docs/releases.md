@@ -2,15 +2,23 @@
 
 The desktop version is set in `mygo.json`. Release notes are the matching version section of `CHANGELOG.md`. Build from a clean commit and annotated tag; keep the source revision with the release evidence.
 
-## Windows portable archives
+## Windows builds
 
-Windows builds use the same MyGo build, but the release machine has no working NSIS (`makensis` aborts), so Windows ships as portable archives instead of a `setup.exe`:
+Windows builds use the same MyGo build as the macOS app. The release machine needs a working NSIS `makensis` on `PATH`; with the macOS Homebrew bottle, also export a UTF-8 locale, because NSIS 3.13 aborts with `std::bad_alloc` when `LANG`/`LC_*` are unset ([NSIS bug #1165](https://sourceforge.net/p/nsis/bugs/1165/); the Homebrew formula test sets the same workaround):
 
 ```sh
-go tool mygo build -platform windows/amd64,windows/arm64 -o build/release-<version>-windows .
+PATH=/opt/homebrew/bin:$PATH LANG=en_GB.UTF-8 LC_ALL=en_GB.UTF-8 \
+  go tool mygo build -platform windows/amd64,windows/arm64 -o build/release-<version>-windows .
 ```
 
-Each target directory contains `CurlGo.exe` with icon and manifest, the license/third-party notices, a signed `curlgo-<version>-windows-<arch>.tar.gz` update archive and `update-windows-<arch>.json`. Create the portable ZIPs from the executable plus the two notice files, and publish the ZIPs, update archives and update manifests to the same GitHub release. The portable build is unsigned: state the SmartScreen warning in release notes and on the website. Combine macOS and Windows assets in the release `SHA256SUMS`.
+Each target directory contains:
+
+- `CurlGo.exe` with icon and manifest (the portable executable);
+- `curlgo-setup-<version>-<arch>.exe`, the NSIS installer;
+- `install.ps1`, a one-line installer for the latest release;
+- `curlgo-<version>-windows-<arch>.tar.gz` and `update-windows-<arch>.json`, the signed update archive and manifest.
+
+Publish the installers, the portable ZIPs (`curlgo-<version>-windows-<arch>.zip`, made from the executable plus the license and third-party notices), the update archives/manifests and install.ps1 to the same GitHub release. Windows builds are unsigned: state the SmartScreen warning in release notes and on the website. Combine macOS and Windows assets in the release `SHA256SUMS`.
 
 ## Standalone CLI and embedded guide
 
