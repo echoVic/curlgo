@@ -2,6 +2,16 @@
 
 The desktop version is set in `mygo.json`. Release notes are the matching version section of `CHANGELOG.md`. Build from a clean commit and annotated tag; keep the source revision with the release evidence.
 
+## Windows portable archives
+
+Windows builds use the same MyGo build, but the release machine has no working NSIS (`makensis` aborts), so Windows ships as portable archives instead of a `setup.exe`:
+
+```sh
+go tool mygo build -platform windows/amd64,windows/arm64 -o build/release-<version>-windows .
+```
+
+Each target directory contains `CurlGo.exe` with icon and manifest, the license/third-party notices, a signed `curlgo-<version>-windows-<arch>.tar.gz` update archive and `update-windows-<arch>.json`. Create the portable ZIPs from the executable plus the two notice files, and publish the ZIPs, update archives and update manifests to the same GitHub release. The portable build is unsigned: state the SmartScreen warning in release notes and on the website. Combine macOS and Windows assets in the release `SHA256SUMS`.
+
 ## Standalone CLI and embedded guide
 
 The standalone CLI and complete Agent guide share the version in `internal/cli/VERSION` and the [CLI changelog](../internal/cli/CHANGELOG.md). The guide and all references in `internal/cli/guide/` are embedded in the binary at build time. `curlgo skill [topic]` reads those resources, never local copies installed by a skills tool. Bump the CLI version when releasing changes to its behavior or full guide; desktop-only changes do not require a CLI version bump.
