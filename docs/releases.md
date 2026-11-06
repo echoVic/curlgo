@@ -32,7 +32,7 @@ On another release machine, provide this same key through `MYGO_UPDATER_PRIVATE_
 ```sh
 go test ./...
 go vet ./...
-go tool mygo build -platform darwin/arm64 -o build/release-0.1.1 .
+go tool mygo build -platform darwin/arm64 -o build/release-0.2.0 .
 ```
 
 The build produces the DMG, a signed update archive, `update-darwin-arm64.json`, and checksums. Publish all of them to the same GitHub release. The updater reads `https://github.com/echoVic/curlgo/releases/latest/download/update-darwin-arm64.json`; the archive URL points at the immutable version tag.
@@ -40,12 +40,12 @@ The build produces the DMG, a signed update archive, `update-darwin-arm64.json`,
 Before publishing:
 
 ```sh
-codesign --verify --deep --strict build/release-0.1.1/darwin-arm64/CurlGo.app
-xcrun stapler validate build/release-0.1.1/darwin-arm64/CurlGo.app
-spctl --assess --type execute build/release-0.1.1/darwin-arm64/CurlGo.app
-xcrun stapler validate build/release-0.1.1/darwin-arm64/curlgo-0.1.1-arm64.dmg
-hdiutil verify build/release-0.1.1/darwin-arm64/curlgo-0.1.1-arm64.dmg
-go run scripts/verify_update.go mygo.json build/release-0.1.1/darwin-arm64/update-darwin-arm64.json build/release-0.1.1/darwin-arm64/curlgo-0.1.1-darwin-arm64.tar.gz
+codesign --verify --deep --strict build/release-0.2.0/darwin-arm64/CurlGo.app
+xcrun stapler validate build/release-0.2.0/darwin-arm64/CurlGo.app
+spctl --assess --type execute build/release-0.2.0/darwin-arm64/CurlGo.app
+xcrun stapler validate build/release-0.2.0/darwin-arm64/curlgo-0.2.0-arm64.dmg
+hdiutil verify build/release-0.2.0/darwin-arm64/curlgo-0.2.0-arm64.dmg
+go run scripts/verify_update.go mygo.json build/release-0.2.0/darwin-arm64/update-darwin-arm64.json build/release-0.2.0/darwin-arm64/curlgo-0.2.0-darwin-arm64.tar.gz
 ```
 
 Verify the downloaded public assets again after publishing. The signature covers the SHA-256 digest of the update archive; release-note text in the manifest is not signed. The signed `.app` archive contains the stapled app. The DMG itself is stapled; its embedded app is copied before app stapling.
