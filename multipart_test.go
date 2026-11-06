@@ -154,7 +154,7 @@ func TestMultipartView(t *testing.T) {
 	}
 	clickUI(t, tt, "正文类型")
 	clickUI(t, tt, "multipart/form-data")
-	clickUI(t, tt, "发送  ⌘ ↵")
+	clickUI(t, tt, a.sendShortcutLabel())
 	pumpApp(t, q, func() bool { return !a.busy })
 	tt.Frame()
 	if a.response != "uploaded" || a.notice != "" {

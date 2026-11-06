@@ -210,6 +210,16 @@ class Scenarios(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(result["result"]["statusCode"], 200)
 
+    def assert_private_mode(self, path, expected):
+        """Assert a POSIX 0600/0700 mode, which Windows cannot represent.
+
+        Windows only models the read-only flag and reports 0666/0777 for the
+        CLI's private files and directories, so the permission assertion is
+        only meaningful on POSIX hosts.
+        """
+        if os.name != "nt":
+            self.assertEqual(path.stat().st_mode & 0o777, expected)
+
     def body(self, result):
         body = result["result"]["body"]
         self.assertFalse(body["truncated"])
@@ -217,7 +227,7 @@ class Scenarios(unittest.TestCase):
             return body["text"].encode()
         path = Path(body["path"])
         self.assertEqual(path.parent, self.work)
-        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+        self.assert_private_mode(path, 0o600)
         return path.read_bytes()
 
     def test_dry_run_sends_nothing_and_creates_no_cookie(self):
@@ -286,7 +296,7 @@ class Scenarios(unittest.TestCase):
         code, result = self.call(self.request("/session"))
         self.assertEqual(code, 4)
         self.assertEqual(result["result"]["statusCode"], 401)
-        self.assertEqual(jar.stat().st_mode & 0o777, 0o600)
+        self.assert_private_mode(jar, 0o600)
 
     def test_business_failure_blocks_extraction_even_with_http_200(self):
         code, result = self.call(self.request("/business-failure", extractors=[
@@ -425,7 +435,7 @@ class Scenarios(unittest.TestCase):
         self.assertEqual(summary, json.loads((work / 'summary.json').read_bytes()))
         self.assertNotIn(MESSAGE, json.dumps(summary, ensure_ascii=False))
         for path in work.rglob('*'):
-            self.assertEqual(path.stat().st_mode & 0o777, 0o700 if path.is_dir() else 0o600)
+            self.assert_private_mode(path, 0o700 if path.is_dir() else 0o600)
         return summary, server, work
 
     def test_business_chain_passes_and_retains_step_evidence(self):

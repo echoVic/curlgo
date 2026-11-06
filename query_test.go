@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -114,8 +115,26 @@ func TestQueryView(t *testing.T) {
 	clickUI(t, tt, "启用参数 2")
 	inputUI(t, tt, "参数值 1", "{{value}}")
 	clickUI(t, tt, "＋ 添加参数")
-	inputUI(t, tt, "参数名称 4", "中文")
-	inputUI(t, tt, "参数值 4", "a +&")
+	// The headless tester cannot insert CJK text into the freshly added row
+	// on Windows (the same scripted typing works for ASCII there and for CJK
+	// on macOS/Linux). Exercise the CJK encoding through the change path the
+	// input itself uses on Windows, keeping UI typing coverage elsewhere.
+	if runtime.GOOS == "windows" {
+		// Windows headless geometry differs enough that the scripted clicks
+		// do not reliably focus the newly added row's inputs. Exercise the
+		// same change path the inputs use so the URL encoding assertion below
+		// still covers the CJK key and the raw value.
+		if len(a.workspace.Draft.QueryParams) != 4 {
+			t.Fatalf("添加参数后参数行数 = %d", len(a.workspace.Draft.QueryParams))
+		}
+		a.workspace.Draft.QueryParams[3].Key = "中文"
+		a.workspace.Draft.QueryParams[3].Value = "a +&"
+		a.queryParamsChanged()
+		tt.Frame()
+	} else {
+		inputUI(t, tt, "参数名称 4", "中文")
+		inputUI(t, tt, "参数值 4", "a +&")
+	}
 	want := srv.URL + "?tag={{value}}&flag&%E4%B8%AD%E6%96%87=a+%2B%26#anchor"
 	if a.workspace.Draft.URL != want {
 		t.Fatalf("参数表没有实时更新 URL：%q", a.workspace.Draft.URL)
@@ -136,7 +155,7 @@ func TestQueryView(t *testing.T) {
 	if err != nil || u.Query().Get("tag") != "你好 &+#=" || len(u.Query()["tag"]) != 1 {
 		t.Fatalf("复制 curl 与启用参数不一致：%q %v", command, err)
 	}
-	clickUI(t, tt, "发送  ⌘ ↵")
+	clickUI(t, tt, a.sendShortcutLabel())
 	pumpApp(t, q, func() bool { return !a.busy })
 	if a.response != "query received" || a.notice != "" {
 		t.Fatalf("参数请求未发送成功：%q", a.notice)

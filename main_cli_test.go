@@ -57,6 +57,11 @@ func mainCLIAcceptance(t *testing.T, target string) {
 	defer cancel()
 	dir := t.TempDir()
 	binary := filepath.Join(dir, "curlgo")
+	if runtime.GOOS == "windows" {
+		// The Windows loader only treats a file as executable when it has the
+		// .exe extension, regardless of the build output name.
+		binary += ".exe"
+	}
 	build := exec.CommandContext(ctx, "go", "build", "-o", binary, target)
 	build.Env = append(os.Environ(), "CGO_ENABLED=0")
 	build.WaitDelay = time.Second
@@ -84,7 +89,13 @@ func mainCLIAcceptance(t *testing.T, target string) {
 	if err := os.Mkdir(tmp, 0700); err != nil {
 		t.Fatal(err)
 	}
-	env := append(os.Environ(), "HOME="+home, "XDG_CONFIG_HOME="+config, "TMPDIR="+tmp)
+	// Isolate every config/temp location the child can consult: HOME and
+	// XDG_CONFIG_HOME cover POSIX, APPDATA/LOCALAPPDATA cover the Windows
+	// os.UserConfigDir path, and TMPDIR/TMP/TEMP cover os.TempDir on all hosts.
+	env := append(os.Environ(),
+		"HOME="+home, "USERPROFILE="+home, "XDG_CONFIG_HOME="+config,
+		"APPDATA="+config, "LOCALAPPDATA="+filepath.Join(home, "LocalAppData"),
+		"TMPDIR="+tmp, "TMP="+tmp, "TEMP="+tmp)
 	before := mainCLIConfigSnapshot(t, config)
 	t.Cleanup(func() {
 		if after := mainCLIConfigSnapshot(t, config); !reflect.DeepEqual(before, after) {
@@ -301,6 +312,9 @@ func mainCLIAcceptance(t *testing.T, target string) {
 					name += "_dryRun"
 				}
 				t.Run(name, func(t *testing.T) {
+					if runtime.GOOS == "windows" {
+						t.Skip("Windows cannot deliver os.Interrupt to another process")
+					}
 					child, stop := context.WithTimeout(ctx, 5*time.Second)
 					defer stop()
 					args := []string{"run", flag, "-"}
@@ -355,6 +369,9 @@ func mainCLIAcceptance(t *testing.T, target string) {
 	})
 
 	t.Run("actualSIGINT", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("Windows cannot deliver os.Interrupt to another process")
+		}
 		ready := make(chan struct{})
 		server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 			close(ready)
@@ -491,8 +508,13 @@ func mainCLIConfigSnapshot(t *testing.T, dir string) map[string]string {
 		if err != nil {
 			return err
 		}
-		value := info.Mode().String() + " " + info.ModTime().String()
+		// Directories own a mode and existence; their modification time can
+		// lag behind a just-finished child write on Windows (NTFS updates the
+		// parent directory timestamp asynchronously), so only files compare
+		// times.
+		value := info.Mode().String()
 		if !entry.IsDir() {
+			value += " " + info.ModTime().String()
 			data, err := os.ReadFile(path)
 			if err != nil {
 				return err

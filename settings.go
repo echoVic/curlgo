@@ -68,6 +68,42 @@ func (a *application) appSettingsView(c *ui.Context) {
 					ui.Text(c, "后台检查已关闭，自动下载暂停。仍可手动检查更新。").TextColor(t.TextMuted).FontSize(12)
 				}
 			})
+			a.shortcutSettingsCard(c)
+		})
+	})
+}
+
+// shortcutSettingsCard lists every customizable action. Clicking 更改
+// focuses a field that records the next chord; Escape cancels it and
+// Backspace restores the action's default.
+func (a *application) shortcutSettingsCard(c *ui.Context) {
+	t := c.Theme()
+	ui.Column(c).FillWidth().Gap(12).Padding(18).Radius(t.Radius).Background(t.Surface).Children(func() {
+		ui.Text(c, "快捷键").FontSize(16).Bold()
+		ui.Text(c, "点击「更改」后按下新组合；Esc 取消，Backspace 恢复默认。").TextColor(t.TextMuted).FontSize(12)
+		for _, shortcut := range a.shortcuts() {
+			shortcut := shortcut
+			recording := a.recordingShortcut == shortcut.Action
+			ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
+				ui.Text(c, shortcut.Label).Grow(1)
+				if recording {
+					ui.TextInput(c.Key("shortcut-recording"), &a.shortcutCapture).Width(220).ReadOnly(true).Placeholder("按下新的快捷键…").Label("新的快捷键").Focus().OnTextKey(a.captureShortcut)
+				} else {
+					ui.Text(c, formatChord(shortcut.Mods, shortcut.Key, shortcutPlatform())).TextColor(t.TextMuted)
+					ui.Button(c.Key("shortcut-change-"+shortcut.Action), "更改").Label("更改 " + shortcut.Label).OnClick(func() {
+						a.startShortcutRecording(shortcut.Action)
+					})
+				}
+				ui.Button(c.Key("shortcut-reset-"+shortcut.Action), "恢复默认").Label("恢复默认 " + shortcut.Label).Disabled(a.shortcutIsDefault(shortcut.Action)).OnClick(func() {
+					a.resetShortcut(shortcut.Action)
+				})
+			})
+		}
+		if a.shortcutMessage != "" {
+			ui.Text(c, a.shortcutMessage).TextColor(t.Danger).FontSize(12)
+		}
+		ui.Row(c).Children(func() {
+			ui.Button(c.Key("shortcuts-reset-all"), "全部恢复默认").OnClick(a.resetAllShortcuts)
 		})
 	})
 }

@@ -11,6 +11,13 @@ import (
 	"testing"
 )
 
+// collectionExportFixtureFile returns an absolute local file path that the
+// export pipeline must validate but never read. POSIX-rooted literals such as
+// "/not-present/..." are not absolute on Windows, so anchor it to os.TempDir.
+func collectionExportFixtureFile() string {
+	return filepath.Join(os.TempDir(), "curlgo-export-must-not-read.bin")
+}
+
 func collectionExportWorkspace() Workspace {
 	raw := NewRequest()
 	raw.ID, raw.Name, raw.GroupID = "raw", "Raw / literal name", "child"
@@ -35,7 +42,7 @@ func collectionExportWorkspace() Workspace {
 	upload.Method, upload.URL, upload.BodyMode = "POST", "https://example.test/upload", BodyMultipart
 	upload.FormParts = []FormPart{
 		{ID: "text", Kind: FormText, Name: "note", Value: "{{note}}"},
-		{ID: "file", Kind: FormFile, Name: "file", FilePath: "/not-present/export-must-not-read.bin"},
+		{ID: "file", Kind: FormFile, Name: "file", FilePath: collectionExportFixtureFile()},
 	}
 	return Workspace{
 		Version: 1,
@@ -508,7 +515,7 @@ func TestCollectionExportSaveAtomic(t *testing.T) {
 		t.Fatalf("save failed: %q %v", data, err)
 	}
 	info, err := os.Stat(path)
-	if err != nil || info.Mode().Perm() != 0600 {
+	if err != nil || posixPermissions() && info.Mode().Perm() != 0600 {
 		t.Fatalf("wrong file permissions: %v %v", info, err)
 	}
 	if err := SaveCollection(dir, []byte("cannot overwrite directory")); err == nil {

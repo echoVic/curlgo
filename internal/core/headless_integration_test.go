@@ -27,7 +27,7 @@ func TestHeadlessIntegrationTLSAndDNS(t *testing.T) {
 		r := engineRequest(server.URL)
 		result, err := e.DoHTTP(t.Context(), r, HTTPOptions{})
 		headlessIntegrationError(t, err, HTTPErrTLS)
-		if result.StatusCode != 0 || result.Timing.TLS <= 0 || result.Timing.TTFB != 0 {
+		if result.StatusCode != 0 || !observedTiming(result.Timing.TLS) || result.Timing.TTFB != 0 {
 			t.Fatalf("untrusted response/timing = %+v", result)
 		}
 		if err := e.SetCACertificates(ca); err != nil {
@@ -35,7 +35,7 @@ func TestHeadlessIntegrationTLSAndDNS(t *testing.T) {
 		}
 		result, err = e.DoHTTP(t.Context(), r, HTTPOptions{})
 		if err != nil || result.StatusCode != 200 || string(result.Body) != "trusted" ||
-			result.Timing.TLS <= 0 || result.Timing.TTFB <= 0 {
+			!observedTiming(result.Timing.TLS) || !observedTiming(result.Timing.TTFB) {
 			t.Fatalf("trusted response = %+v, error = %v", result, err)
 		}
 	})
@@ -60,7 +60,7 @@ func TestHeadlessIntegrationTLSAndDNS(t *testing.T) {
 		result, err := e.DoHTTP(t.Context(), engineRequest("http://api.test"), HTTPOptions{})
 		headlessIntegrationError(t, err, HTTPErrConnect)
 		if !errors.Is(err, dnsErr) || !observed.Load() || result.StatusCode != 0 ||
-			result.Timing.DNS <= 0 || result.Timing.TTFB != 0 || result.Timing.TLS != 0 {
+			!observedTiming(result.Timing.DNS) || result.Timing.TTFB != 0 || result.Timing.TLS != 0 {
 			t.Fatalf("DNS result = %+v, error = %v, observed = %v", result, err, observed.Load())
 		}
 	})
@@ -107,7 +107,7 @@ func TestHeadlessIntegrationRedirects(t *testing.T) {
 	}
 	result, err := engineFixture(t).DoHTTP(t.Context(), engineRequest(server.URL+"/loop"), HTTPOptions{})
 	headlessIntegrationError(t, err, HTTPErrRedirect)
-	if result.StatusCode != 302 || result.URL != server.URL+"/loop" || result.Timing.TTFB <= 0 {
+	if result.StatusCode != 302 || result.URL != server.URL+"/loop" || !observedTiming(result.Timing.TTFB) {
 		t.Fatalf("loop partial result = %+v", result)
 	}
 }
@@ -400,7 +400,7 @@ func TestHeadlessIntegrationResponseFailuresAndGzip(t *testing.T) {
 		result, err := engineFixture(t).DoHTTP(t.Context(), engineRequest(server.URL+"/short"), HTTPOptions{})
 		headlessIntegrationError(t, err, HTTPErrBodyRead)
 		if !errors.Is(err, io.ErrUnexpectedEOF) || result.StatusCode != 200 || string(result.Body) != "partial" ||
-			result.Headers.Get("X-Partial") != "retained" || result.BodyTruncated || result.Timing.TTFB <= 0 {
+			result.Headers.Get("X-Partial") != "retained" || result.BodyTruncated || !observedTiming(result.Timing.TTFB) {
 			t.Fatalf("short body result = %+v, error = %v", result, err)
 		}
 	})

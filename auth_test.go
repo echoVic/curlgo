@@ -39,8 +39,8 @@ func TestAuthView(t *testing.T) {
 			if !strings.Contains(tt.Clipboard(), "Bearer test-token") {
 				t.Fatal("copied curl omitted auth")
 			}
-			clickUI(t, tt, "收藏  ⌘ S")
-			clickUI(t, tt, "发送  ⌘ ↵")
+			clickUI(t, tt, a.saveShortcutLabel())
+			clickUI(t, tt, a.sendShortcutLabel())
 			pumpApp(t, q, func() bool { return !a.busy })
 			if got := <-seen; got != "Bearer test-token" || a.response != "authenticated" || a.notice != "" {
 				t.Fatalf("UI authentication failed: header=%q notice=%q", got, a.notice)

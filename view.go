@@ -66,11 +66,17 @@ func (a *application) view(c *ui.Context) {
 	t.FontSize = 13
 	c.SetTheme(t)
 	if !a.closing {
-		c.OnShortcut(ui.Cmd, ui.KeyN, a.newRequest)
-		c.OnShortcut(ui.Cmd, ui.KeyS, a.saveRequest)
-		c.OnShortcut(ui.Cmd, ui.KeyEnter, a.send)
-		c.OnShortcut(ui.Cmd, ui.KeyL, func() { a.page = 0; a.urlHandle.Focus(c) })
-		c.OnShortcut(0, ui.KeyEscape, a.stop)
+		if a.recordingShortcut != "" && (a.page != 7 || !shortcutActionExists(a.recordingShortcut)) {
+			a.cancelShortcutRecording()
+		}
+		// Recording a new chord must see the keys itself, so no action is
+		// registered while the settings recorder has the focus.
+		if a.recordingShortcut == "" {
+			for _, shortcut := range a.shortcuts() {
+				action := shortcut.Action
+				c.OnShortcut(shortcut.Mods, shortcut.Key, func() { a.runShortcutAction(action) })
+			}
+		}
 	}
 	ui.Column(c).Fill().Background(t.Background).Disabled(a.closing).Children(func() {
 		ui.Row(c).Height(58).Padding(14, 22).Gap(10).BorderWidth(0, 0, 1, 0).BorderColor(t.Border).Background(t.Surface).Children(func() {
@@ -119,7 +125,7 @@ func (a *application) view(c *ui.Context) {
 		ui.Row(c).Height(28).PaddingX(16).BorderWidth(1, 0, 0, 0).BorderColor(t.Border).Children(func() {
 			ui.Text(c, a.saveStatus).TextColor(t.TextMuted).FontSize(11)
 			ui.Spacer(c)
-			ui.Text(c, "⌘ N 新请求     ⌘ L 地址     ⌘ ↵ 发送     Esc 停止").TextColor(t.TextMuted).FontSize(11)
+			ui.Text(c, a.footerShortcutHint()).TextColor(t.TextMuted).FontSize(11)
 		})
 	})
 	if a.toast != "" {
@@ -289,8 +295,8 @@ func (a *application) requestView(c *ui.Context) {
 	r := &a.workspace.Draft
 	services := c.Services()
 	ui.Row(c).Gap(12).Children(func() {
-		ui.TextInput(c.Key("name"), &r.Name).Grow(1).Label("请求名称").OnChange(a.persist)
-		ui.Button(c.Key("save"), "收藏  ⌘ S").OnClick(a.saveRequest)
+		ui.TextInput(c.Key("name"), &r.Name).Grow(1).Label("请求名称").OnChange(a.persist).OnTextKey(a.textShortcut)
+		ui.Button(c.Key("save"), a.saveShortcutLabel()).OnClick(a.saveRequest)
 		ui.Button(c.Key("copy-curl"), "复制 curl").Disabled(r.Protocol == "WebSocket").OnClick(func() {
 			if !a.validateDraft() {
 				return
@@ -325,15 +331,15 @@ func (a *application) requestView(c *ui.Context) {
 	})
 	ui.Row(c).Padding(6).Gap(8).Radius(12).Background(t.Surface).BorderWidth(1).BorderColor(t.Border).Children(func() {
 		ui.Select(c.Key("method"), &r.Method, []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}).Width(100).Label("请求方法").Disabled(a.busy || r.Protocol == "WebSocket").OnChange(a.persist)
-		ui.TextInput(c.Key("url"), &r.URL).Bind(&a.urlHandle).Grow(1).Height(36).Placeholder("https://… 或 {{base_url}}/api").Label("请求地址").Disabled(a.busy).OnChange(a.queryURLChanged).OnSubmit(a.send)
-		label := "发送  ⌘ ↵"
+		ui.TextInput(c.Key("url"), &r.URL).Bind(&a.urlHandle).Grow(1).Height(36).Placeholder("https://… 或 {{base_url}}/api").Label("请求地址").Disabled(a.busy).OnChange(a.queryURLChanged).OnSubmit(a.send).OnTextKey(a.textShortcut)
+		label := a.sendShortcutLabel()
 		if r.Protocol == "WebSocket" {
 			label = "连接"
 		}
 		if a.busy {
 			label = "停止"
 		}
-		ui.PrimaryButton(c.Key("send"), label).Width(112).Height(36).OnClick(a.send)
+		ui.PrimaryButton(c.Key("send"), label).Width(sendButtonWidth(label)).Height(36).OnClick(a.send)
 	})
 	splitSize, splitView := &a.split, ui.SplitVertical
 	if a.requestTab == 7 {
@@ -465,7 +471,7 @@ func (a *application) responseView(c *ui.Context) {
 		}
 		if a.workspace.Draft.Protocol == "WebSocket" {
 			ui.Row(c).Gap(10).Children(func() {
-				ui.TextInput(c.Key("message"), &a.message).Grow(1).Label("WebSocket 消息").Placeholder("输入要发送的文本消息").OnSubmit(a.sendMessage)
+				ui.TextInput(c.Key("message"), &a.message).Grow(1).Label("WebSocket 消息").Placeholder("输入要发送的文本消息").OnSubmit(a.sendMessage).OnTextKey(a.textShortcut)
 				ui.PrimaryButton(c.Key("send-message"), "发送消息").Disabled(a.socket == nil).OnClick(a.sendMessage)
 			})
 		}
@@ -520,6 +526,10 @@ func (a *application) importView(c *ui.Context) {
 	})
 	ui.Text(c, "粘贴命令，变成可编辑的请求。只解析文本，导入时不会发送请求。").TextColor(t.TextMuted)
 	ui.TextArea(c.Key("curl-text"), &a.curlInput).Label("curl 命令").Grow(1).FillWidth().Font("monospace").Placeholder("curl 'https://example.com/api' \\\n  -H 'Accept: application/json'")
+	// Spacer before the action row: on Windows the grown text area's hit area
+	// can reach past its visible bottom and swallow clicks on the buttons
+	// directly below it. Extra separation keeps that row clickable.
+	ui.Spacer(c).Height(28)
 	ui.Row(c).Gap(12).Children(func() {
 		ui.PrimaryButton(c.Key("do-import"), "导入请求").OnClick(a.importCURL)
 		ui.Button(c.Key("paste-curl"), "从剪贴板粘贴").OnClick(func() { a.curlInput = services.ReadClipboard() })

@@ -97,28 +97,7 @@ func main() {
 		a.updates = a.win.Update
 		a.closeNative = a.win.Close
 		a.attachUpdater(nativeUpdateBackend{})
-		mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
-			{Label: "CurlGo", Submenu: []*mygo.MenuItem{
-				{Role: mygo.RoleAbout},
-				updaterMenuItem(),
-				mygo.Separator(),
-				{Label: "设置…", Accelerator: "CmdOrCtrl+,", Click: func(*mygo.MenuItem, *mygo.Window) {
-					if a.closed || a.closing {
-						return
-					}
-					a.win.Update(func() {
-						if !a.closed && !a.closing {
-							a.page = 7
-							a.notice = ""
-						}
-					})
-				}},
-				mygo.Separator(),
-				{Role: mygo.RoleQuit},
-			}},
-			{Role: mygo.RoleEditMenu},
-			{Role: mygo.RoleWindowMenu},
-		}))
+		a.installMenu()
 		mygo.App.OnSecondInstance(func(_ []string, _ string) {
 			if !a.closed {
 				a.win.Show()
@@ -142,4 +121,52 @@ func main() {
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// installMenu builds and installs the application menu. It is called again
+// after the user changes a shortcut, so the 设置… accelerator always follows
+// the resolved settings binding.
+func (a *application) installMenu() {
+	if a.closed || a.closing || a.win == nil {
+		return
+	}
+	accelerator := ""
+	// While a chord is being recorded the native menu must not take it: drop
+	// every menu accelerator (Edit/Window roles included) and offer a quit
+	// item without one, so Cmd/Ctrl+Q or Cmd/Ctrl+Z reach the recorder.
+	if a.recordingShortcut != "" {
+		mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
+			{Label: "CurlGo", Submenu: []*mygo.MenuItem{
+				{Role: mygo.RoleAbout},
+				mygo.Separator(),
+				{Label: "退出 CurlGo", Click: func(*mygo.MenuItem, *mygo.Window) { mygo.App.Quit() }},
+			}},
+		}))
+		return
+	}
+	if binding, ok := a.shortcutBindingFor("settings"); ok {
+		accelerator = acceleratorFor(binding.Chord)
+	}
+	mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
+		{Label: "CurlGo", Submenu: []*mygo.MenuItem{
+			{Role: mygo.RoleAbout},
+			updaterMenuItem(),
+			mygo.Separator(),
+			{Label: "设置…", Accelerator: accelerator, Click: func(*mygo.MenuItem, *mygo.Window) {
+				if a.closed || a.closing {
+					return
+				}
+				a.win.Update(func() {
+					if !a.closed && !a.closing {
+						a.page = 7
+						a.notice = ""
+					}
+				})
+			}},
+			mygo.Separator(),
+			{Role: mygo.RoleQuit},
+		}},
+		{Role: mygo.RoleEditMenu},
+		{Role: mygo.RoleWindowMenu},
+	}))
 }

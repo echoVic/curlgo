@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -30,7 +31,13 @@ func uploadFile(t *testing.T, name string, data []byte) string {
 
 func TestEngineMultipart(t *testing.T) {
 	data := bytes.Repeat([]byte{0, 1, 255, 13, 10}, 300000)
-	path := uploadFile(t, `中文 "文件".bin`, data)
+	name := `中文 "文件".bin`
+	if runtime.GOOS == "windows" {
+		// Windows forbids double quotes in file names; filename quote escaping
+		// in the multipart wire format is still covered on POSIX hosts.
+		name = "中文 文件.bin"
+	}
+	path := uploadFile(t, name, data)
 	type received struct {
 		names, values, filenames []string
 		hash                     [32]byte

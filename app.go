@@ -54,6 +54,7 @@ type application struct {
 	urlHandle                                                              ui.Handle
 	list                                                                   ui.ListState
 	toast                                                                  string
+	recordingShortcut, shortcutCapture, shortcutMessage                    string
 	caCertPEM                                                              string
 	caError                                                                error
 	proxyURL, proxyBypass                                                  string
@@ -153,6 +154,13 @@ func cloneWorkspace(w core.Workspace) core.Workspace {
 		envs[name] = cp
 	}
 	w.Settings.Environments = envs
+	if len(w.Settings.Shortcuts) > 0 {
+		shortcuts := make(map[string]string, len(w.Settings.Shortcuts))
+		for action, chord := range w.Settings.Shortcuts {
+			shortcuts[action] = chord
+		}
+		w.Settings.Shortcuts = shortcuts
+	}
 	return w
 }
 func (a *application) startSaving() {

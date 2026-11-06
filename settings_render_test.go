@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -16,6 +17,10 @@ import (
 func TestAppSettingsRenderCommand(t *testing.T) {
 	dir := t.TempDir()
 	binary := filepath.Join(dir, "curlgo")
+	if runtime.GOOS == "windows" {
+		// Windows exec requires the .exe extension to run the built binary.
+		binary += ".exe"
+	}
 	home := filepath.Join(dir, "home")
 	if err := os.Mkdir(home, 0700); err != nil {
 		t.Fatal(err)
@@ -31,7 +36,9 @@ func TestAppSettingsRenderCommand(t *testing.T) {
 			args = append(args, "--dark")
 		}
 		cmd := exec.CommandContext(t.Context(), binary, args...)
-		cmd.Env = append(os.Environ(), "HOME="+home, "XDG_CONFIG_HOME="+home, "MYGO_FRAME_STATS=all")
+		cmd.Env = append(os.Environ(), "HOME="+home, "USERPROFILE="+home,
+			"XDG_CONFIG_HOME="+home, "APPDATA="+home,
+			"LOCALAPPDATA="+filepath.Join(home, "LocalAppData"), "MYGO_FRAME_STATS=all")
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("render settings: %v\n%s", err, out)
 		}

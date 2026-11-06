@@ -38,7 +38,7 @@ func TestValidateMultipartFiles(t *testing.T) {
 	if err != nil || string(data) != "unchanged" {
 		t.Fatalf("validation changed upload: %q, %v", data, err)
 	}
-	if os.Geteuid() != 0 {
+	if posixPermissions() && os.Geteuid() != 0 {
 		if err := os.Chmod(path, 0000); err != nil {
 			t.Fatal(err)
 		}

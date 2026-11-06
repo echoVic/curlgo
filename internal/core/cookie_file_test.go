@@ -130,7 +130,7 @@ func TestCookieFilePermissions(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := info.Mode().Perm(); got != 0600 {
+			if got := info.Mode().Perm(); posixPermissions() && got != 0600 {
 				t.Fatalf("permissions=%o, want 600", got)
 			}
 			entries, err := os.ReadDir(dir)

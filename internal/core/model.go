@@ -63,6 +63,7 @@ type Settings struct {
 	Environments  map[string]map[string]string `json:"environments"`
 	Environment   string                       `json:"environment"`
 	Theme         string                       `json:"theme"`
+	Shortcuts     map[string]string            `json:"shortcuts,omitempty"`
 }
 type History struct {
 	Request Request   `json:"request"`

@@ -22,6 +22,18 @@ func clickUI(t *testing.T, tt *ui.Tester, label string) {
 func inputUI(t *testing.T, tt *ui.Tester, label, value string) {
 	t.Helper()
 	clickUI(t, tt, label)
+	// A TextInput's label may not take the focus itself; label geometry and
+	// font metrics differ across platforms, so fall back to clicking just
+	// right of the label when the click did not focus the input.
+	if !tt.Focused(label) {
+		if r, ok := tt.Find(label); ok {
+			tt.ClickAt(r.X+r.W+40, r.Y+r.H/2)
+		}
+	}
+	if !tt.Focused(label) {
+		// Last resort: walk the focusable controls with Tab.
+		tt.Key(0, ui.KeyTab)
+	}
 	tt.Key(ui.Cmd, ui.KeyA)
 	tt.Type(value)
 }
@@ -226,7 +238,7 @@ func TestApplicationView(t *testing.T) {
 			t.Fatal("UI导入失败")
 		}
 		inputUI(t, tt, "请求名称", "已收藏")
-		clickUI(t, tt, "收藏  ⌘ S")
+		clickUI(t, tt, a.saveShortcutLabel())
 		clickUI(t, tt, "＋  新请求")
 		clickUI(t, tt, "打开 已收藏")
 		if a.workspace.Draft.URL != "https://example.test/imported" {
@@ -290,6 +302,46 @@ func TestApplicationView(t *testing.T) {
 		clickUI(t, tt, "复制 curl")
 		if tt.Clipboard() != "before" || a.notice == "" {
 			t.Fatal("非法输入后仍复制旧请求")
+		}
+	})
+}
+
+// The curl import page must import on a plain click of 导入请求, without a
+// keyboard detour, both with the text set ahead and typed into the editor.
+// Windows acceptance once observed the click silently do nothing; the
+// headless tree never reproduced it, so this guards the product path.
+func TestImportCURLButtonClick(t *testing.T) {
+	t.Run("预设文本", func(t *testing.T) {
+		a, _ := testApp(t)
+		a.curlInput = "curl 'http://127.0.0.1:18080/health' -H 'Accept: application/json'"
+		a.page = 2
+		tt := ui.NewTester(a.view, 1200, 820)
+		tt.Frame()
+		clickUI(t, tt, "导入请求")
+		if a.page != 0 || a.workspace.Draft.URL != "http://127.0.0.1:18080/health" {
+			t.Fatalf("点击导入请求后未导入：page=%d url=%q", a.page, a.workspace.Draft.URL)
+		}
+		if len(a.workspace.Draft.Headers) == 0 && a.workspace.Draft.Headers != nil {
+			t.Fatalf("导入请求没有解析 Header：%+v", a.workspace.Draft.Headers)
+		}
+	})
+	t.Run("在编辑器输入后点击", func(t *testing.T) {
+		a, _ := testApp(t)
+		a.page = 2
+		tt := ui.NewTester(a.view, 1200, 820)
+		tt.Frame()
+		clickUI(t, tt, "curl 命令")
+		tt.Type("curl 'http://127.0.0.1:18080/health'")
+		tt.Frame()
+		clickUI(t, tt, "导入请求")
+		if a.page != 0 || a.workspace.Draft.URL != "http://127.0.0.1:18080/health" {
+			t.Fatalf("输入后点击导入请求未导入：page=%d url=%q", a.page, a.workspace.Draft.URL)
+		}
+		if a.curlInput != "" || a.toast != "" {
+			// 导入成功后清空输入并给出 toast，由下一帧消费
+			if a.curlInput != "" {
+				t.Fatalf("导入后未清空 curl 输入：%q", a.curlInput)
+			}
 		}
 	})
 }

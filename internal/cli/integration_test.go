@@ -60,11 +60,11 @@ func TestCLIIntegrationCookieJarAfterReadFailure(t *testing.T) {
 	exit, value, _ := invokeCLI(t, t.Context(), cliIntegrationInput(t, server.URL+"/login", nil), "--cookie-jar", jar)
 	cliIntegrationFailure(t, exit, value, ExitExecution, "BODY_READ_ERROR")
 	if value.Result == nil || value.Result.StatusCode != 200 || value.Result.Body == nil ||
-		value.Result.Body.Text == nil || *value.Result.Body.Text != "partial login" || value.Result.Timing.TTFBMs <= 0 {
+		value.Result.Body.Text == nil || *value.Result.Body.Text != "partial login" || !measuredMilliseconds(value.Result.Timing.TTFBMs) {
 		t.Fatalf("partial login response = %+v", value.Result)
 	}
 	info, err := os.Stat(jar)
-	if err != nil || info.Mode().Perm() != 0600 {
+	if err != nil || posixPermissions() && info.Mode().Perm() != 0600 {
 		t.Fatalf("cookie jar mode = %v, %v", info, err)
 	}
 	auth := cliIntegrationInput(t, server.URL+"/auth", nil)
@@ -117,7 +117,7 @@ func TestCLIIntegrationTLSConfiguration(t *testing.T) {
 				}
 			} else if exit != ExitOK || !value.OK || value.Result == nil || value.Result.StatusCode != 200 ||
 				value.Result.Body.Text == nil || *value.Result.Body.Text != "trusted" ||
-				value.Result.Timing.TLSMs <= 0 || calls.Load() != before+1 {
+				!measuredMilliseconds(value.Result.Timing.TLSMs) || calls.Load() != before+1 {
 				t.Fatalf("trusted CLI result = %d, %+v", exit, value)
 			}
 		})
@@ -293,7 +293,7 @@ func TestCLIIntegrationOutputFailures(t *testing.T) {
 		if value.Result == nil || value.Result.StatusCode != 202 || value.Result.Body != nil ||
 			value.Result.Method != "POST" || value.Result.URL != server.URL ||
 			value.Result.Proto != "HTTP/1.1" || value.Result.Status != "202 Accepted" ||
-			value.Result.Headers.Get("X-Response") != "metadata" || value.Result.Timing.TTFBMs <= 0 {
+			value.Result.Headers.Get("X-Response") != "metadata" || !measuredMilliseconds(value.Result.Timing.TTFBMs) {
 			t.Fatalf("output failure lost partial metadata: %+v", value.Result)
 		}
 		cliIntegrationNoSecrets(t, raw)
@@ -321,6 +321,9 @@ func TestCLIIntegrationOutputFailures(t *testing.T) {
 		}
 	})
 	t.Run("unwritableDirectory", func(t *testing.T) {
+		if !posixPermissions() {
+			t.Skip("chmod cannot make a directory unwritable on Windows")
+		}
 		if os.Geteuid() == 0 {
 			t.Skip("root bypasses directory permissions")
 		}
@@ -360,20 +363,20 @@ func TestCLIIntegrationBinaryCapture(t *testing.T) {
 	}
 	data, err := os.ReadFile(old)
 	info, statErr := os.Stat(old)
-	if err != nil || statErr != nil || string(data) != "old body" || info.Mode().Perm() != 0640 ||
+	if err != nil || statErr != nil || string(data) != "old body" || posixPermissions() && info.Mode().Perm() != 0640 ||
 		paths[0] == paths[1] || paths[0] == old || paths[1] == old {
 		t.Fatalf("body paths collided or old body changed: %v, %v, %v", paths, err, statErr)
 	}
 	t.Run("defaultDirectoryRetained", func(t *testing.T) {
 		parent := t.TempDir()
-		t.Setenv("TMPDIR", parent)
+		setTempDir(t, parent)
 		exit, value, raw := invokeCLI(t, t.Context(), input)
 		if value.Result == nil || value.Result.Body == nil {
 			t.Fatalf("missing captured result = %+v", value)
 		}
 		dir := filepath.Dir(value.Result.Body.Path)
 		info, err := os.Stat(dir)
-		if err != nil || !info.IsDir() || info.Mode().Perm() != 0700 || filepath.Dir(dir) != parent {
+		if err != nil || !info.IsDir() || posixPermissions() && info.Mode().Perm() != 0700 || filepath.Dir(dir) != parent {
 			t.Fatalf("default body directory not private/retained: %v, %v", info, err)
 		}
 		cliIntegrationCapturedBody(t, exit, value, raw, dir, payload[:4<<20])

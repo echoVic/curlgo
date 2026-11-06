@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -339,12 +340,15 @@ func TestFormatHeaders(t *testing.T) {
 }
 
 func TestResolveMultipart(t *testing.T) {
+	// A t.TempDir()-rooted path is absolute on every OS; the POSIX-rooted
+	// "/tmp/..." literal is not absolute on Windows.
+	filePath := filepath.Join(t.TempDir(), "{{literal}}.txt")
 	r := modelRequest()
 	r.BodyMode = BodyMultipart
 	r.Body = "{{inactive}}"
 	r.FormParts = []FormPart{
 		{Kind: FormText, Name: "title", Value: "{{value}}"},
-		{Kind: FormFile, Name: "files", FilePath: "/tmp/{{literal}}.txt"},
+		{Kind: FormFile, Name: "files", FilePath: filePath},
 	}
 	s := NewWorkspace().Settings
 	s.Environments[s.Environment]["value"] = "中文内容"
@@ -355,7 +359,7 @@ func TestResolveMultipart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Body != "" || got.FormParts[0].Value != "中文内容" || got.FormParts[1].FilePath != "/tmp/{{literal}}.txt" {
+	if got.Body != "" || got.FormParts[0].Value != "中文内容" || got.FormParts[1].FilePath != filePath {
 		t.Fatalf("表单变量或正文处理错误：%+v", got)
 	}
 	if len(got.Headers) != 1 || got.Headers[0].Key != "X-Test" {

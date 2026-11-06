@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -82,6 +83,13 @@ func (s *fakeKeyStore) Remove(ctx context.Context, id string) error {
 
 func testPath(t *testing.T) string {
 	t.Helper()
+	if runtime.GOOS == "windows" {
+		// The vault only accepts paths whose directory is exactly 0700 and whose
+		// file is exactly 0600 (internal/vault/file.go privateDirectory/privateFile).
+		// Windows maps every mode to 0777/0666, so no file operation can satisfy
+		// that POSIX predicate; the desktop vault is darwin-gated in product code.
+		t.Skip("vault private-file predicate requires POSIX 0600/0700 modes")
+	}
 	dir := t.TempDir()
 	if err := os.Chmod(dir, 0700); err != nil {
 		t.Fatal(err)
@@ -179,7 +187,9 @@ func TestOpenRejectsUnsafeOrMalformedFiles(t *testing.T) {
 					t.Fatal(err)
 				}
 				if err := os.Symlink(target, path); err != nil {
-					t.Fatal(err)
+					// Symlink creation needs SeCreateSymbolicLinkPrivilege on
+					// Windows; the symlink threat case cannot be staged there.
+					t.Skipf("symlink fixture unavailable: %v", err)
 				}
 			case "directory":
 				if err := os.Remove(path); err != nil {

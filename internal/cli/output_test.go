@@ -303,7 +303,7 @@ func TestSaveBodyExplicitDirectory(t *testing.T) {
 	}
 	old, err := os.ReadFile(oldPath)
 	info, statErr := os.Stat(oldPath)
-	if err != nil || statErr != nil || string(old) != "old contents" || info.Mode().Perm() != 0640 {
+	if err != nil || statErr != nil || string(old) != "old contents" || posixPermissions() && info.Mode().Perm() != 0640 {
 		t.Fatalf("old file changed: %q, %v, %v", old, err, statErr)
 	}
 }
@@ -349,7 +349,7 @@ func TestSaveBodyUnwritableExplicitDirectory(t *testing.T) {
 
 func TestSaveBodyDefaultDirectory(t *testing.T) {
 	parent := t.TempDir()
-	t.Setenv("TMPDIR", parent)
+	setTempDir(t, parent)
 	body := []byte{0xff, 0, 1}
 	first, err := saveBody(body, "")
 	if err != nil {
@@ -365,7 +365,7 @@ func TestSaveBodyDefaultDirectory(t *testing.T) {
 			t.Fatalf("unexpected default directory: %q", dir)
 		}
 		info, err := os.Stat(dir)
-		if err != nil || !info.IsDir() || info.Mode().Perm() != 0700 {
+		if err != nil || !info.IsDir() || posixPermissions() && info.Mode().Perm() != 0700 {
 			t.Fatalf("default directory not retained and private: %v, %v", info, err)
 		}
 	}
@@ -379,7 +379,7 @@ func TestSaveBodyDefaultDirectory(t *testing.T) {
 func TestSaveBodyDefaultDirectoryFailure(t *testing.T) {
 	parent := t.TempDir()
 	missing := filepath.Join(parent, "missing")
-	t.Setenv("TMPDIR", missing)
+	setTempDir(t, missing)
 	path, err := saveBody([]byte("body"), "")
 	if err == nil || path != "" {
 		t.Fatalf("invalid temp directory = %q, %v", path, err)
@@ -517,7 +517,7 @@ func outputTestFile(t *testing.T, path, dir string, body []byte) {
 		t.Fatalf("unexpected body path: %q", path)
 	}
 	info, err := os.Stat(path)
-	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0600 {
+	if err != nil || !info.Mode().IsRegular() || posixPermissions() && info.Mode().Perm() != 0600 {
 		t.Fatalf("body file not retained and private: %v, %v", info, err)
 	}
 	saved, err := os.ReadFile(path)

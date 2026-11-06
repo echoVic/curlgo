@@ -34,9 +34,12 @@ func TestCURLMultipart(t *testing.T) {
 		}
 	})
 	t.Run("文件路径在curl表单语法中转义", func(t *testing.T) {
+		// Absolute on every OS; the double quote exercises curl form escaping
+		// and the path never reaches the filesystem.
+		filePath := filepath.Join(t.TempDir(), `a,b; "quote".txt`)
 		r := modelRequest()
 		r.BodyMode = BodyMultipart
-		r.FormParts = []FormPart{{Kind: FormFile, Name: "file", FilePath: `/tmp/a,b; "quote".txt`}}
+		r.FormParts = []FormPart{{Kind: FormFile, Name: "file", FilePath: filePath}}
 		cmd, err := ExportCURL(r, NewWorkspace().Settings)
 		if err != nil {
 			t.Fatal(err)
@@ -45,7 +48,8 @@ func TestCURLMultipart(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if args[len(args)-2] != "--form" || args[len(args)-1] != `file=@"/tmp/a,b; \"quote\".txt"` {
+		escaped := strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(filePath)
+		if args[len(args)-2] != "--form" || args[len(args)-1] != `file=@"`+escaped+`"` {
 			t.Fatalf("文件路径转义错误：%q", args)
 		}
 		if _, err := ImportCURL(cmd); err == nil {

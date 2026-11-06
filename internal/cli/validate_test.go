@@ -124,7 +124,7 @@ func TestDryRunResolvedMetadataAndAuthentication(t *testing.T) {
 func TestDryRunFilesAndDirectoriesUnchanged(t *testing.T) {
 	dir := t.TempDir()
 	tmp := t.TempDir()
-	t.Setenv("TMPDIR", tmp)
+	setTempDir(t, tmp)
 	out := filepath.Join(dir, "output")
 	if err := os.Mkdir(out, 0500); err != nil {
 		t.Fatal(err)
@@ -227,6 +227,9 @@ func TestDryRunMultipartPreflight(t *testing.T) {
 		{"invalidFilename", filepath.Join(dir, "private_marker\n.bin"), false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			if tc.name == "nonregular" && !posixPermissions() {
+				t.Skip("os.DevNull is NUL on Windows, not a non-regular file fixture")
+			}
 			input := fmt.Sprintf(`{"schemaVersion":1,"request":{"url":"https://private_marker.invalid",
 				"method":"POST","bodyMode":"multipart","headers":[{"key":"Content-Type","value":"{{missing}}"}],
 				"formParts":[{"kind":"text","name":"title","value":"{{secret}}"},{"kind":"file","name":"file","filePath":%q}]},
@@ -246,7 +249,7 @@ func TestDryRunMultipartPreflight(t *testing.T) {
 			}
 		})
 	}
-	if os.Geteuid() != 0 {
+	if posixPermissions() && os.Geteuid() != 0 {
 		if err := os.Chmod(path, 0000); err != nil {
 			t.Fatal(err)
 		}

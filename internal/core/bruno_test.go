@@ -71,6 +71,11 @@ settings {
 }
 
 func TestImportBrunoBodies(t *testing.T) {
+	// Bruno multipart fixtures must reference absolute local paths. Build them
+	// from temp roots so they are absolute on Windows too ("/abs/..." is not).
+	absFile := filepath.Join(t.TempDir(), "file.txt")
+	collectionRoot := t.TempDir()
+	relativeFile := filepath.Join(collectionRoot, "data", "file.txt")
 	for _, tc := range []struct {
 		name, block, mode, body, contentType string
 		parts                                []FormPart
@@ -80,13 +85,13 @@ func TestImportBrunoBodies(t *testing.T) {
 		{name: "xml", mode: "xml", block: "body:xml {\n  <a>{{v}}</a>\n}", body: "<a>{{v}}</a>", contentType: "application/xml"},
 		{name: "form", mode: "formUrlEncoded", block: "body:form-urlencoded {\n  a b: x+y&z=\n  token: {{token}}\n  ~off: no\n}", body: "a+b=x%2By%26z%3D&token={{token}}", contentType: "application/x-www-form-urlencoded", warning: "变量"},
 		{name: "at-key", mode: "formUrlEncoded", block: "body:form-urlencoded {\n  @description('docs')\n  @field: value\n}", body: "%40field=value", contentType: "application/x-www-form-urlencoded"},
-		{name: "multipart", mode: "multipartForm", block: "body:multipart-form {\n  note: {{note}}\n  upload: @file(/abs/file.txt)\n  ~off: no\n}", parts: []FormPart{{Kind: FormText, Name: "note", Value: "{{note}}"}, {Kind: FormFile, Name: "upload", FilePath: "/abs/file.txt"}}, warning: "/abs/file.txt"},
-		{name: "relative-file", mode: "multipartForm", block: "body:multipart-form {\n  upload: @file(data/file.txt)\n}", parts: []FormPart{{Kind: FormFile, Name: "upload", FilePath: "/collection/data/file.txt"}}, warning: "/collection/data/file.txt"},
+		{name: "multipart", mode: "multipartForm", block: "body:multipart-form {\n  note: {{note}}\n  upload: @file(" + absFile + ")\n  ~off: no\n}", parts: []FormPart{{Kind: FormText, Name: "note", Value: "{{note}}"}, {Kind: FormFile, Name: "upload", FilePath: absFile}}, warning: absFile},
+		{name: "relative-file", mode: "multipartForm", block: "body:multipart-form {\n  upload: @file(data/file.txt)\n}", parts: []FormPart{{Kind: FormFile, Name: "upload", FilePath: relativeFile}}, warning: relativeFile},
 		{name: "graphql", mode: "graphql", block: "body:graphql {\n  query { me }\n}\n\nbody:graphql:vars {\n  {\"a\": 1}\n}", body: `{"query":"query { me }","variables":{"a": 1}}`, contentType: "application/json"},
 		{name: "none", mode: "none", block: "body:json {\n  {\"ignored\": true}\n}"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			r, warnings, err := parseBrunoRequest("meta {\n  name: "+tc.name+"\n}\n\npost {\n  url: https://example.com\n  body: "+tc.mode+"\n}\n\n"+tc.block+"\n", brunoContext{root: "/collection"})
+			r, warnings, err := parseBrunoRequest("meta {\n  name: "+tc.name+"\n}\n\npost {\n  url: https://example.com\n  body: "+tc.mode+"\n}\n\n"+tc.block+"\n", brunoContext{root: collectionRoot})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -313,8 +318,12 @@ func TestImportBrunoDirectory(t *testing.T) {
 	writeBrunoFile(t, root, "Orders/list.bru", "meta {\n  name: List\n}\n\nget {\n  url: {{base_url}}/orders\n  auth: inherit\n}\n\nheaders {\n  x-folder: request\n}\n")
 	writeBrunoFile(t, root, "Broken.bru", "meta {\n  name: Broken\n}\n")
 	writeBrunoFile(t, root, "notes.txt", "ignored")
+	linked := true
 	if err := os.Symlink(filepath.Join(root, "a-first.bru"), filepath.Join(root, "link.bru")); err != nil {
-		t.Fatal(err)
+		// Creating symlinks requires SeCreateSymbolicLinkPrivilege on Windows;
+		// keep the rest of the directory-import coverage without the fixture.
+		t.Logf("symlink fixture unavailable: %v", err)
+		linked = false
 	}
 	got, err := ImportBrunoDirectory(root)
 	if err != nil {
@@ -353,7 +362,7 @@ func TestImportBrunoDirectory(t *testing.T) {
 	if err != nil || wire.URL != "http://localhost:8080/orders" || HTTPHeaders(wire.Headers).Get("Authorization") != "" {
 		t.Fatalf("resolved folder none = %+v, error = %v", wire, err)
 	}
-	if !warned(got, "Broken.bru") || !warned(got, "link.bru") || !warned(got, "password") {
+	if !warned(got, "Broken.bru") || linked && !warned(got, "link.bru") || !warned(got, "password") {
 		t.Fatalf("损坏文件、符号链接和密钥变量应提示：%v", got.Warnings)
 	}
 }

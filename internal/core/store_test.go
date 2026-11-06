@@ -45,6 +45,11 @@ func assertStoreMode(t *testing.T, path string, mode os.FileMode) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if !posixPermissions() {
+		// Windows always reports 0666/0777 and only models the read-only flag,
+		// so the store's POSIX private mode cannot be observed there.
+		return
+	}
 	if st.Mode().Perm() != mode {
 		t.Fatalf("%s 权限=%o，期望=%o", filepath.Base(path), st.Mode().Perm(), mode)
 	}

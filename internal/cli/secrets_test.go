@@ -198,7 +198,7 @@ func TestRunSecretsFileDryRunHasNoSideEffects(t *testing.T) {
 	server.Start()
 	defer server.Close()
 	dir := t.TempDir()
-	t.Setenv("TMPDIR", dir)
+	setTempDir(t, dir)
 	data := []byte(`{"schemaVersion":1,"variables":{"token":"private_marker"}}`)
 	path := secretsTestFile(t, data)
 	before, err := os.Stat(path)

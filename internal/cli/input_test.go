@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -84,13 +85,16 @@ func TestInputResolve(t *testing.T) {
 }
 
 func TestInputMultipart(t *testing.T) {
+	// The CLI accepts only absolute local file paths; a t.TempDir()-rooted
+	// path is absolute on every OS, unlike a "/..." literal on Windows.
+	filePath := filepath.Join(t.TempDir(), "input-test-file")
 	request := map[string]any{
 		"url":      "https://example.test",
 		"bodyMode": "multipart",
 		"body":     "{{ignored_raw_body}}",
 		"formParts": []core.FormPart{
 			{Kind: core.FormText, Name: "field", Value: "{{text}}"},
-			{Kind: core.FormFile, Name: "upload", FilePath: "/nonexistent/input-test-file"},
+			{Kind: core.FormFile, Name: "upload", FilePath: filePath},
 		},
 		"headers": []core.Pair{{Key: "Content-Type", Value: "incorrect"}},
 	}
@@ -106,7 +110,7 @@ func TestInputMultipart(t *testing.T) {
 		t.Fatalf("multipart not normalized: %+v", got.Request)
 	}
 	if len(got.Request.FormParts) != 2 || got.Request.FormParts[0].Value != "resolved" ||
-		got.Request.FormParts[1].FilePath != "/nonexistent/input-test-file" {
+		got.Request.FormParts[1].FilePath != filePath {
 		t.Fatalf("multipart fields changed: %+v", got.Request.FormParts)
 	}
 }

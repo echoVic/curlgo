@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/base64"
 	"encoding/json"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -131,10 +132,12 @@ func TestImportPostmanBodies(t *testing.T) {
 }
 
 func TestImportPostmanMultipartReferencesFiles(t *testing.T) {
+	// Absolute on every OS, and the import path must reference without reading.
+	filePath := filepath.Join(t.TempDir(), "import-must-not-read.txt")
 	got := importPostmanItems(t, postmanEntry("Upload", map[string]any{"method": "POST", "url": "https://example.com", "body": map[string]any{
 		"mode": "formdata", "formdata": []any{
 			map[string]any{"key": "note", "type": "text", "value": "{{note}}"},
-			map[string]any{"key": "upload", "type": "file", "src": "/not-present/import-must-not-read.txt"},
+			map[string]any{"key": "upload", "type": "file", "src": filePath},
 			map[string]any{"key": "off", "type": "file", "src": "relative.txt", "disabled": true},
 		},
 	}}))
@@ -143,10 +146,10 @@ func TestImportPostmanMultipartReferencesFiles(t *testing.T) {
 		t.Fatalf("multipart 表单错误：%+v", r)
 	}
 	note, upload := r.FormParts[0], r.FormParts[1]
-	if note.ID == "" || note.Kind != FormText || note.Name != "note" || note.Value != "{{note}}" || upload.Kind != FormFile || upload.FilePath != "/not-present/import-must-not-read.txt" {
+	if note.ID == "" || note.Kind != FormText || note.Name != "note" || note.Value != "{{note}}" || upload.Kind != FormFile || upload.FilePath != filePath {
 		t.Fatalf("表单字段错误：%+v", r.FormParts)
 	}
-	if !warned(got, "Upload", "/not-present/import-must-not-read.txt") {
+	if !warned(got, "Upload", filePath) {
 		t.Fatalf("没有提示引用的本地文件：%v", got.Warnings)
 	}
 }

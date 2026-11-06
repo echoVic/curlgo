@@ -55,7 +55,7 @@ func TestDoHTTPRawResponses(t *testing.T) {
 					if string(result.Body) != want || result.BodyTruncated != (limit == 3) {
 						t.Fatalf("body = %q, truncated = %v", result.Body, result.BodyTruncated)
 					}
-					if result.Timing.Total <= 0 || result.Timing.TTFB <= 0 || result.Timing.TLS != 0 {
+					if !observedTiming(result.Timing.Total) || !observedTiming(result.Timing.TTFB) || result.Timing.TLS != 0 {
 						t.Fatalf("timing = %+v", result.Timing)
 					}
 				})
@@ -74,7 +74,7 @@ func TestDoHTTPCanceled(t *testing.T) {
 	if !errors.As(err, &httpErr) || httpErr.Code != HTTPErrCanceled || !errors.Is(err, context.Canceled) {
 		t.Fatalf("canceled error = %v", err)
 	}
-	if result.Timing.Total <= 0 || result.Timing.TTFB != 0 {
+	if !observedTiming(result.Timing.Total) || result.Timing.TTFB != 0 {
 		t.Fatalf("canceled timing = %+v", result.Timing)
 	}
 }
@@ -97,7 +97,7 @@ func TestDoHTTPReadError(t *testing.T) {
 		result.Headers.Get("X-Reply") != "partial" || result.Method != r.Method || result.URL != r.URL {
 		t.Fatalf("partial response = %+v", result)
 	}
-	if result.Timing.Total <= 0 || result.Timing.TTFB <= 0 {
+	if !observedTiming(result.Timing.Total) || !observedTiming(result.Timing.TTFB) {
 		t.Fatalf("read error timing = %+v", result.Timing)
 	}
 }
@@ -227,7 +227,7 @@ func TestDoHTTPRedirectErrors(t *testing.T) {
 							result.Method != r.Method || result.URL != r.URL {
 							t.Fatalf("redirect response = %+v", result)
 						}
-						if result.Timing.Total <= 0 || result.Timing.TTFB <= 0 {
+						if !observedTiming(result.Timing.Total) || !observedTiming(result.Timing.TTFB) {
 							t.Fatalf("redirect timing = %+v", result.Timing)
 						}
 					})

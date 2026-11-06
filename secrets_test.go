@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -50,6 +51,10 @@ func (s *appSecretKeys) Remove(_ context.Context, id string) error {
 
 func appVault(t *testing.T, a *application) (string, *appSecretKeys) {
 	t.Helper()
+	if runtime.GOOS == "windows" {
+		// The desktop vault requires POSIX private-directory permissions.
+		t.Skip("desktop vault requires POSIX file modes")
+	}
 	dir := t.TempDir()
 	if err := os.Chmod(dir, 0700); err != nil {
 		t.Fatal(err)

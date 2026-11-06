@@ -224,7 +224,7 @@ func TestExtractionView(t *testing.T) {
 					t.Fatalf("extraction control outside minimum window %s: %+v", label, rect)
 				}
 			}
-			clickUI(t, tt, "发送  ⌘ ↵")
+			clickUI(t, tt, a.sendShortcutLabel())
 			pumpApp(t, q, func() bool { return !a.busy })
 			tt.Frame() // reflect the UI-thread completion before targeting enabled inputs
 			if a.workspace.Settings.Environments[a.envName]["trace"] != "trace-value" || !a.canExtractResponse() {

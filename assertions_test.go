@@ -212,7 +212,7 @@ func TestAssertionViewAtMinimumWindow(t *testing.T) {
 					t.Fatalf("control outside minimum window %s: %+v", label, rect)
 				}
 			}
-			clickUI(t, tt, "发送  ⌘ ↵")
+			clickUI(t, tt, a.sendShortcutLabel())
 			pumpApp(t, q, func() bool { return !a.busy })
 			tt.Frame()
 			if a.assertionReport == nil || !a.assertionReport.Passed {

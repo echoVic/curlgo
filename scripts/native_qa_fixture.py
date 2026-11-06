@@ -35,7 +35,7 @@ def main():
     def record(path, event):
         with lock:
             item = {"time": time.time(), "path": path, "event": event, "active": dict(counts)}
-            with (args.out_dir / "observations.jsonl").open("a") as stream:
+            with (args.out_dir / "observations.jsonl").open("a", encoding="utf-8") as stream:
                 stream.write(json.dumps(item) + "\n")
                 stream.flush()
 
@@ -209,8 +209,12 @@ def main():
         requests.append(request)
     collection = {"format": "curlgo-collection", "version": 1, "name": "Mac 原生验收",
                   "groups": [], "requests": requests}
-    (args.out_dir / "collection.json").write_text(json.dumps(collection, ensure_ascii=False, indent=2))
-    (args.out_dir / "server.json").write_text(json.dumps({"baseURL": base, "pid": os.getpid()}))
+    # Always write UTF-8: on Windows setlocale/cp1252 is the default text
+    # encoding, and the fixture contains Chinese names and messages.
+    (args.out_dir / "collection.json").write_text(
+        json.dumps(collection, ensure_ascii=False, indent=2), encoding="utf-8")
+    (args.out_dir / "server.json").write_text(
+        json.dumps({"baseURL": base, "pid": os.getpid()}), encoding="utf-8")
     print(json.dumps({"baseURL": base, "pid": os.getpid()}), flush=True)
     server.serve_forever()
 
