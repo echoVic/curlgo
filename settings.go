@@ -68,6 +68,13 @@ func (a *application) appSettingsView(c *ui.Context) {
 					ui.Text(c, "后台检查已关闭，自动下载暂停。仍可手动检查更新。").TextColor(t.TextMuted).FontSize(12)
 				}
 			})
+			ui.Column(c).FillWidth().Gap(12).Padding(18).Radius(t.Radius).Background(t.Surface).Children(func() {
+				ui.Text(c, "问题反馈").FontSize(16).Bold()
+				ui.Row(c).FillWidth().Gap(16).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, "遇到问题或有建议？欢迎在 GitHub 上告诉我们。").TextColor(t.TextMuted).Grow(1)
+					ui.Link(c, "报告问题或建议", feedbackURL)
+				})
+			})
 			a.shortcutSettingsCard(c)
 		})
 	})

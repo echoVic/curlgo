@@ -151,6 +151,7 @@ func (a *application) installMenu() {
 		{Label: "CurlGo", Submenu: []*mygo.MenuItem{
 			{Role: mygo.RoleAbout},
 			updaterMenuItem(),
+			a.feedbackMenuItem(),
 			mygo.Separator(),
 			{Label: "设置…", Accelerator: accelerator, Click: func(*mygo.MenuItem, *mygo.Window) {
 				if a.closed || a.closing {
