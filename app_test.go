@@ -223,6 +223,74 @@ func TestApplicationApplySettings(t *testing.T) {
 	}
 }
 
+// The variables editor holds the environment it was loaded from, so saving it
+// under the name of another existing environment must not replace that one.
+func TestApplicationApplySettingsEnvironmentName(t *testing.T) {
+	twoEnvironments := func(t *testing.T) *application {
+		t.Helper()
+		a, _ := testApp(t)
+		a.workspace.Settings.Environments["测试"] = map[string]string{"base_url": "https://test.example"}
+		a.syncSettings()
+		return a
+	}
+	t.Run("改用其他已有环境名被拒绝", func(t *testing.T) {
+		a := twoEnvironments(t)
+		before := appSnapshot(t, a.workspace.Settings)
+		a.envName = " 测试 "
+		a.variables = `{"base_url":"https://overwritten.example"}`
+		a.globalHeaders = "X-New: value"
+		a.applySettings()
+		if appSnapshot(t, a.workspace.Settings) != before || a.workspace.Settings.Environments["测试"]["base_url"] != "https://test.example" ||
+			!strings.Contains(a.notice, "环境「测试」已存在") || a.toast != "" {
+			t.Fatalf("覆盖了其他已有环境：提示=%q 设置=%s", a.notice, appSnapshot(t, a.workspace.Settings))
+		}
+	})
+	t.Run("按载入的环境名保存", func(t *testing.T) {
+		a := twoEnvironments(t)
+		loaded := a.workspace.Settings.Environment
+		a.envName = " " + loaded + " "
+		a.variables = `{"base_url":"http://localhost:9090"}`
+		a.applySettings()
+		s := a.workspace.Settings
+		if a.notice != "" || s.Environment != loaded || !reflect.DeepEqual(s.Environments[loaded], map[string]string{"base_url": "http://localhost:9090"}) ||
+			s.Environments["测试"]["base_url"] != "https://test.example" {
+			t.Fatalf("载入的环境未保存：提示=%q 设置=%s", a.notice, appSnapshot(t, s))
+		}
+	})
+	t.Run("新名称新增环境并可继续保存", func(t *testing.T) {
+		a := twoEnvironments(t)
+		loaded := a.workspace.Settings.Environment
+		a.envName = "预发"
+		a.variables = `{"base_url":"https://staging.example"}`
+		a.applySettings()
+		s := a.workspace.Settings
+		if a.notice != "" || s.Environment != "预发" || s.Environments["预发"]["base_url"] != "https://staging.example" ||
+			s.Environments[loaded]["base_url"] != "http://localhost:8080" || s.Environments["测试"]["base_url"] != "https://test.example" {
+			t.Fatalf("新环境未创建：提示=%q 设置=%s", a.notice, appSnapshot(t, s))
+		}
+		// The editor now belongs to the environment it was saved as.
+		a.variables = `{"base_url":"https://staging2.example"}`
+		a.applySettings()
+		if a.notice != "" || a.workspace.Settings.Environments["预发"]["base_url"] != "https://staging2.example" {
+			t.Fatalf("保存后的新环境不能再次保存：%q", a.notice)
+		}
+	})
+	t.Run("提取刷新编辑器后归属该环境", func(t *testing.T) {
+		a := twoEnvironments(t)
+		a.envName = "测试"
+		a.capturedResponse.body = []byte(`{"token":"extracted"}`)
+		a.applyExtractedVariables([]core.ResponseExtractor{{Variable: "token", Source: core.ExtractJSON, Selector: "/token"}}, "测试")
+		var shown map[string]string
+		if err := json.Unmarshal([]byte(a.variables), &shown); err != nil || shown["token"] != "extracted" || shown["base_url"] != "https://test.example" {
+			t.Fatalf("提取没有刷新编辑器：%q %v", a.variables, err)
+		}
+		a.applySettings()
+		if a.notice != "" || a.workspace.Settings.Environment != "测试" || a.workspace.Settings.Environments["测试"]["token"] != "extracted" {
+			t.Fatalf("编辑器显示的环境不能保存：%q", a.notice)
+		}
+	})
+}
+
 func TestApplicationCASettings(t *testing.T) {
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, "trusted")

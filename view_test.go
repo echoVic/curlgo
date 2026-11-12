@@ -345,3 +345,80 @@ func TestImportCURLButtonClick(t *testing.T) {
 		}
 	})
 }
+
+// The headers and timeout inputs put their validation message in the banner.
+// Once the value is valid again that message goes away, but a notice shown in
+// the meantime by anything else, another input included, stays.
+func TestRequestInputNoticeClearsWhenValid(t *testing.T) {
+	invalidHeaders := "invalid header"
+	_, wantHeaderErr := core.ParseHeaders(invalidHeaders)
+	if wantHeaderErr == nil {
+		t.Fatal("fixture headers parse")
+	}
+	timeoutNotice := "超时为 1–3600 秒"
+	t.Run("非法后改为合法即清除", func(t *testing.T) {
+		a, _ := testApp(t)
+		tt := ui.NewTester(a.view, 1200, 820)
+		inputUI(t, tt, "请求头内容", invalidHeaders)
+		if a.notice != wantHeaderErr.Error() {
+			t.Fatalf("非法请求头没有提示：%q", a.notice)
+		}
+		inputUI(t, tt, "请求头内容", "X-A: one")
+		tt.Frame()
+		if a.notice != "" || tt.HasText("知道了") || len(a.workspace.Draft.Headers) != 1 {
+			t.Fatalf("请求头改为合法后仍显示旧错误：%q", a.notice)
+		}
+		clickUI(t, tt, "选项")
+		inputUI(t, tt, "超时秒数", "0")
+		if a.notice != timeoutNotice {
+			t.Fatalf("非法超时没有提示：%q", a.notice)
+		}
+		inputUI(t, tt, "超时秒数", "15")
+		if a.notice != "" || a.workspace.Draft.TimeoutSeconds != 15 {
+			t.Fatalf("超时改为合法后仍显示旧错误：%q", a.notice)
+		}
+	})
+	t.Run("期间出现的其他提示保留", func(t *testing.T) {
+		a, _ := testApp(t)
+		tt := ui.NewTester(a.view, 1200, 820)
+		inputUI(t, tt, "请求头内容", invalidHeaders)
+		other := "响应超过 4 MiB，当前展示已截断"
+		a.notice = other
+		inputUI(t, tt, "请求头内容", "X-A: one")
+		if a.notice != other {
+			t.Fatalf("请求头改为合法清除了无关提示：%q", a.notice)
+		}
+		inputUI(t, tt, "请求头内容", invalidHeaders)
+		clickUI(t, tt, "选项")
+		inputUI(t, tt, "超时秒数", "0")
+		clickUI(t, tt, "请求头")
+		inputUI(t, tt, "请求头内容", "X-A: one")
+		if a.notice != timeoutNotice {
+			t.Fatalf("请求头改为合法清除了超时提示：%q", a.notice)
+		}
+	})
+}
+
+// Sending one request twice leaves two history entries with the same request
+// ID. Each row still needs its own list key, so a click opens the entry that
+// was clicked and not its namesake.
+func TestHistoryRowsWithSameRequestHaveDistinctKeys(t *testing.T) {
+	a, _ := testApp(t)
+	older := core.NewRequest()
+	older.URL = "https://old.example/a"
+	newer := older
+	newer.URL = "https://new.example/b"
+	at := time.Now()
+	// The third entry repeats both the ID and the time of the second.
+	a.workspace.History = []core.History{{Request: newer, At: at.Add(time.Second)}, {Request: older, At: at}, {Request: older, At: at}}
+	a.libraryTab = 1
+	tt := ui.NewTester(a.view, 1200, 820)
+	clickUI(t, tt, "打开 "+older.URL)
+	if a.workspace.Draft.URL != older.URL {
+		t.Fatalf("点击较早的历史记录却打开了 %s", a.workspace.Draft.URL)
+	}
+	clickUI(t, tt, "打开 "+newer.URL)
+	if a.workspace.Draft.URL != newer.URL {
+		t.Fatalf("点击较新的历史记录却打开了 %s", a.workspace.Draft.URL)
+	}
+}

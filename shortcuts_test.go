@@ -703,3 +703,38 @@ func TestShortcutCollidedOverrideStaysResettable(t *testing.T) {
 		t.Fatalf("reset binding = %+v", got)
 	}
 }
+
+// The stop shortcut with nothing running must leave a finished response
+// usable: stop() bumps the generation, which would disable validating and
+// extracting from the response already on screen.
+func TestStopShortcutIdleKeepsCapturedResponse(t *testing.T) {
+	a, _ := testApp(t)
+	a.capturedResponse = responseCapture{requestID: a.workspace.Draft.ID, generation: a.generation, received: true, complete: true, status: 200}
+	if !a.canValidateResponse() {
+		t.Fatal("测试前提不成立：响应应可验证")
+	}
+	a.runShortcutAction("stop")
+	if !a.canValidateResponse() {
+		t.Fatal("空闲时按停止快捷键不应使当前响应失效")
+	}
+	a.busy = true
+	a.runShortcutAction("stop")
+	if a.busy || a.status != "已停止" {
+		t.Fatalf("请求进行中按停止快捷键应停止请求：busy=%v status=%q", a.busy, a.status)
+	}
+}
+
+// validateChord reports whether mods and key pressed on platform may be
+// bound, running the same three checks captureShortcut applies to a key press:
+// a chord with Ctrl, Cmd (Mod) or Alt, or a bare Escape or function key.
+func validateChord(mods ui.Modifiers, key ui.Key, platform string) error {
+	tokens, err := chordTokensFromMods(mods, key, platform)
+	if err != nil {
+		return err
+	}
+	if err := tokens.validate(); err != nil {
+		return err
+	}
+	_, err = tokens.resolve(platform)
+	return err
+}

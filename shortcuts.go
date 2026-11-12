@@ -390,21 +390,6 @@ func parseChord(s, platform string) (ui.Modifiers, ui.Key, error) {
 	return mods, tokens.key, nil
 }
 
-// validateChord reports whether mods and key pressed on platform may be
-// bound: a chord with Ctrl, Cmd (Mod) or Alt, or a bare Escape or function
-// key.
-func validateChord(mods ui.Modifiers, key ui.Key, platform string) error {
-	tokens, err := chordTokensFromMods(mods, key, platform)
-	if err != nil {
-		return err
-	}
-	if err := tokens.validate(); err != nil {
-		return err
-	}
-	_, err = tokens.resolve(platform)
-	return err
-}
-
 // acceleratorFor translates a chord in the canonical grammar to MyGo's menu
 // accelerator grammar: Mod is CmdOrCtrl, Ctrl is Ctrl, then the key.
 func acceleratorFor(chord string) string {
@@ -678,7 +663,12 @@ func (a *application) runShortcutAction(id string) {
 		a.page = 0
 		a.urlHandle.Focus()
 	case "stop":
-		a.stop()
+		// stop also invalidates the captured response, so with nothing running
+		// the key must do nothing: the finished response stays usable for
+		// 验证当前响应 and 从当前响应提取.
+		if a.busy {
+			a.stop()
+		}
 	case "settings":
 		a.page = 7
 		a.notice = ""

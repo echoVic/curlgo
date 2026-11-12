@@ -154,35 +154,39 @@ func (a *application) sidebar(c *ui.Context) {
 				selectedGroups = core.GroupSubtree(a.workspace.Groups, a.groupFilter)
 			}
 		}
-		var rows []struct {
-			r    core.Request
-			time string
+		type sidebarRow struct {
+			r         core.Request
+			time, key string
 		}
+		var rows []sidebarRow
 		if a.libraryTab == 0 {
 			for _, r := range a.workspace.Requests {
 				if a.groupFilter == ungroupedFilter && paths[r.GroupID] != "" || selectedGroups != nil && !selectedGroups[r.GroupID] {
 					continue
 				}
 				if a.matches(r, paths[r.GroupID]) {
-					rows = append(rows, struct {
-						r    core.Request
-						time string
-					}{r, ""})
+					rows = append(rows, sidebarRow{r: r, key: r.ID})
 				}
 			}
 		} else {
+			// Sending a request again adds a history entry with the same request
+			// ID, so the ID alone is not a unique row key: add the send time, and
+			// a counter for entries that still collide.
+			seen := make(map[string]int, len(a.workspace.History))
 			for _, h := range a.workspace.History {
+				key := h.Request.ID + "@" + strconv.FormatInt(h.At.UnixNano(), 10)
+				seen[key]++
+				if n := seen[key]; n > 1 {
+					key += "#" + strconv.Itoa(n)
+				}
 				if a.matches(h.Request, paths[h.Request.GroupID]) {
-					rows = append(rows, struct {
-						r    core.Request
-						time string
-					}{h.Request, h.At.Format("15:04")})
+					rows = append(rows, sidebarRow{r: h.Request, time: h.At.Format("15:04"), key: key})
 				}
 			}
 		}
 		a.list.Key = func(i int) any {
 			if i >= 0 && i < len(rows) {
-				return rows[i].r.ID
+				return rows[i].key
 			}
 			return i
 		}
@@ -354,9 +358,10 @@ func (a *application) requestView(c *ui.Context) {
 				ui.TextArea(c.Key("headers"), &a.headers).Grow(1).FillWidth().Font("monospace").Label("请求头内容").Placeholder("Content-Type: application/json\nAuthorization: Bearer {{token}}").Disabled(a.busy).OnChange(func() {
 					h, err := core.ParseHeaders(a.headers)
 					if err != nil {
-						a.notice = err.Error()
+						a.setInputNotice("headers", err.Error())
 						return
 					}
+					a.clearInputNotice("headers")
 					r.Headers = h
 					a.persist()
 				})
@@ -392,9 +397,10 @@ func (a *application) requestView(c *ui.Context) {
 						ui.TextInput(c.Key("timeout"), &a.timeout).Width(100).Label("超时秒数").OnChange(func() {
 							n, err := strconv.Atoi(a.timeout)
 							if err != nil || n < 1 || n > 3600 {
-								a.notice = "超时为 1–3600 秒"
+								a.setInputNotice("timeout", "超时为 1–3600 秒")
 								return
 							}
+							a.clearInputNotice("timeout")
 							r.TimeoutSeconds = n
 							a.persist()
 						})

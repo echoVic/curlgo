@@ -86,6 +86,8 @@ func (a *application) applyExtractedVariables(rules []core.ResponseExtractor, en
 	if strings.TrimSpace(a.envName) == environment {
 		data, _ := json.MarshalIndent(merged, "", "  ")
 		a.variables = string(data)
+		// The editor now holds this environment's variables.
+		a.settingsEnvironment = environment
 	}
 	a.notice = ""
 	a.extractionNotice = fmt.Sprintf("已更新环境「%s」中的 %d 个变量", environment, len(values))

@@ -39,8 +39,10 @@ type application struct {
 	closing, closed, saveReady, readOnly                                   bool
 	page, requestTab, responseTab, libraryTab                              int
 	headers, globalHeaders, variables, envName, search, curlInput, message string
+	settingsEnvironment                                                    string // environment the variables editor was loaded from
 	timeout                                                                string
 	status, notice, saveStatus                                             string
+	inputNotice                                                            ownedNotice
 	response, stream, responseLanguage                                     string
 	responseHeaders                                                        http.Header
 	responseEditor                                                         *editor.State
@@ -321,6 +323,7 @@ func (a *application) syncSettings() {
 	a.proxyURL = a.workspace.Settings.Proxy.URL
 	a.proxyBypass = a.workspace.Settings.Proxy.Bypass
 	a.envName = a.workspace.Settings.Environment
+	a.settingsEnvironment = a.envName
 	b, _ := json.MarshalIndent(a.workspace.Settings.Environments[a.envName], "", "  ")
 	a.variables = string(b)
 }
@@ -425,13 +428,16 @@ func (a *application) applySettings() {
 		}
 		vars[k] = text
 	}
-	if vars == nil {
-		a.notice = "环境变量应为 JSON 对象，值均为字符串"
-		return
-	}
 	name := strings.TrimSpace(a.envName)
 	if name == "" {
 		a.notice = "请填写环境名称"
+		return
+	}
+	// The editor holds the variables of the environment it was loaded from.
+	// Saving them under the name of another existing environment would replace
+	// that environment's variables, so only the loaded or a new name is allowed.
+	if _, exists := a.workspace.Settings.Environments[name]; exists && name != a.settingsEnvironment {
+		a.notice = fmt.Sprintf("环境「%s」已存在，请先在请求页切换到该环境再编辑", name)
 		return
 	}
 	// Validate both before applying either, so a bad value changes nothing.
@@ -460,6 +466,7 @@ func (a *application) applySettings() {
 	a.workspace.Settings.Proxy = proxy
 	a.workspace.Settings.Environments[name] = vars
 	a.workspace.Settings.Environment = name
+	a.settingsEnvironment = name
 	a.toast = "环境与全局请求头已保存"
 	a.persist()
 }
@@ -797,4 +804,26 @@ func (a *application) validateDraft() bool {
 	a.workspace.Draft.Headers = h
 	a.workspace.Draft.TimeoutSeconds = n
 	return true
+}
+
+// ownedNotice is the banner text a request input set for its invalid value.
+type ownedNotice struct{ input, text string }
+
+// setInputNotice shows input's validation message in the banner.
+func (a *application) setInputNotice(input, text string) {
+	a.notice = text
+	a.inputNotice = ownedNotice{input, text}
+}
+
+// clearInputNotice takes the banner down once input is valid again, but only
+// while the banner still shows the message input set: a notice put up since,
+// by anything else, stays.
+func (a *application) clearInputNotice(input string) {
+	if a.inputNotice.input != input {
+		return
+	}
+	if a.notice == a.inputNotice.text {
+		a.notice = ""
+	}
+	a.inputNotice = ownedNotice{}
 }
