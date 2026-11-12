@@ -50,7 +50,6 @@ func NewEngine() *Engine {
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	t.Proxy = nil
 	t.DialContext = (&net.Dialer{Timeout: 15 * time.Second, KeepAlive: 30 * time.Second}).DialContext
-	t.ResponseHeaderTimeout = 30 * time.Second
 	e := &Engine{transport: t}
 	e.jar = newCookieJar(e.cookiesChanged)
 	return e
@@ -128,7 +127,17 @@ func (e *Engine) Cookies(raw string) []*http.Cookie {
 	e.mu.RUnlock()
 	return j.Cookies(u)
 }
+
+// Close closes the base transport's idle connections. Requests never run on
+// the base transport itself (see client), so today it holds none; Close stays
+// so that owners release the engine without relying on that.
 func (e *Engine) Close() { e.transport.CloseIdleConnections() }
+
+// client returns a client for r on a fresh clone of the base transport, set
+// up with the current proxy, CA roots and r's timeout. Clones share no
+// connection pool, so every request dials its own connection and its DNS,
+// connect and TLS phases are real. The caller closes the clone's idle
+// connections when done; a WebSocket instead keeps the connection it upgraded.
 func (e *Engine) client(r Request) *http.Client {
 	e.mu.RLock()
 	j, roots, proxy := e.jar, e.roots, e.proxy

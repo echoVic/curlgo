@@ -76,10 +76,6 @@ func validateAuthenticationSize(a Authentication) error {
 	return nil
 }
 
-func resolveAuthentication(a Authentication, vars map[string]string) (Authentication, error) {
-	return resolveAuthenticationMode(a, vars, false)
-}
-
 func resolveAuthenticationMode(a Authentication, vars map[string]string, exporting bool) (Authentication, error) {
 	if err := ValidateAuthentication(a); err != nil {
 		return a, err
