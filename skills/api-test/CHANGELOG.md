@@ -2,6 +2,10 @@
 
 This file tracks the installed bootstrap, not the CLI or its runtime guide.
 
+## 0.1.1 — 2026-11-12
+
+- Point the installation reference at the `cli-v0.1.1` release.
+
 ## 0.1.0 — 2026-11-06
 
 - Keep only the stable `curlgo skill` entry point and installation/older-version guidance in the installed skill.

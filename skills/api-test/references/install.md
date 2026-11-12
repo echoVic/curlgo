@@ -2,7 +2,7 @@
 
 Run `command -v curlgo`. Use a trusted executable consistently. Use `curlgo help` to check for `curlgo skill [topic]` in `help.usage` before running it. An older executable without that advertised command needs an upgrade; updating this bootstrap skill alone does not upgrade it.
 
-Standalone CLI binaries are published at [CLI v0.1.0](https://github.com/echoVic/curlgo/releases/tag/cli-v0.1.0). Select the archive for your OS and CPU architecture, verify it against the release's `SHA256SUMS`, and extract it. Put `curlgo` (`curlgo.exe` on Windows) in a user-managed directory on PATH, or use its absolute path. Use `curlgo help` to confirm skill support, then `curlgo skill` to read the bundled guide. Upgrades replace this executable; updating the bootstrap or desktop application does not replace a separately installed CLI.
+Standalone CLI binaries are published at [CLI v0.1.1](https://github.com/echoVic/curlgo/releases/tag/cli-v0.1.1). Select the archive for your OS and CPU architecture, verify it against the release's `SHA256SUMS`, and extract it. Put `curlgo` (`curlgo.exe` on Windows) in a user-managed directory on PATH, or use its absolute path. Use `curlgo help` to confirm skill support, then `curlgo skill` to read the bundled guide. Upgrades replace this executable; updating the bootstrap or desktop application does not replace a separately installed CLI.
 
 If a trusted source checkout is available, confirm that its `go.mod` declares `module github.com/echoVic/curlgo`, and build the standalone CLI from that checkout's root with Go 1.27.3:
 

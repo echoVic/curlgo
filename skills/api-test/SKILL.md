@@ -2,7 +2,7 @@
 name: api-test
 description: Use when testing or debugging HTTP/HTTPS APIs with CurlGo, including checks for changed API behavior, serial business chains, pasted curl, JSON payloads, authentication, uploads, and response assertions. Not for GUI replay, collection runners, SSE, or WebSocket.
 metadata:
-  version: "0.1.0"
+  version: "0.1.1"
   bootstrap: "true"
 ---
 

@@ -6,7 +6,7 @@
 
 轻量本地 API 客户端，基于 MyGo 0.8.3 原生 UI。打开即用，无需账户或先建项目，请求数据与工作区保存在本机。更新检查会访问 GitHub，可在设置中关闭。HTTP、SSE、WebSocket，以及可选的 CLI 与 Agent Skill。
 
-[下载 v0.2.0 · macOS Apple Silicon](https://github.com/echoVic/curlgo/releases/tag/v0.2.0) · [版本记录](CHANGELOG.md) · [MIT 许可证](LICENSE)
+[下载 v0.2.1 · macOS Apple Silicon](https://github.com/echoVic/curlgo/releases/tag/v0.2.1) · [版本记录](CHANGELOG.md) · [MIT 许可证](LICENSE)
 
 ![CurlGo 原生界面](docs/images/curlgo-light.png)
 
@@ -45,7 +45,7 @@ CLI 帮助、预检与 `curlgo run` 不启动 GUI，向 stdout 输出一个 `sch
 CGO_ENABLED=0 go build -o /tmp/curlgo-api-test ./cmd/curlgo
 ```
 
-[下载独立 CLI v0.1.0](https://github.com/echoVic/curlgo/releases/tag/cli-v0.1.0) · [CLI 与指南版本记录](internal/cli/CHANGELOG.md)
+[下载独立 CLI v0.1.1](https://github.com/echoVic/curlgo/releases/tag/cli-v0.1.1) · [CLI 与指南版本记录](internal/cli/CHANGELOG.md)
 
 ### 项目 Agent 能力
 
