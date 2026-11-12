@@ -4,7 +4,7 @@
 
 **你的 API 工具，由你做主。**
 
-轻量本地 API 客户端，基于 MyGo 0.7.1 原生 UI。打开即用，无需账户或先建项目，请求数据与工作区保存在本机。更新检查会访问 GitHub，可在设置中关闭。HTTP、SSE、WebSocket，以及可选的 CLI 与 Agent Skill。
+轻量本地 API 客户端，基于 MyGo 0.8.3 原生 UI。打开即用，无需账户或先建项目，请求数据与工作区保存在本机。更新检查会访问 GitHub，可在设置中关闭。HTTP、SSE、WebSocket，以及可选的 CLI 与 Agent Skill。
 
 [下载 v0.2.0 · macOS Apple Silicon](https://github.com/echoVic/curlgo/releases/tag/v0.2.0) · [版本记录](CHANGELOG.md) · [MIT 许可证](LICENSE)
 
@@ -161,7 +161,7 @@ curlgo run --curl - --dry-run <imported.curl
 }
 ```
 
-显式 `--out-dir` 与 `--cookie-jar` 的父目录（即使 jar 不存在）必须已存在且为目录。预检只检查存在与目录类型，不检查写权限或剩余空间，不执行 mkdir 或保存；该路径检查失败为 `OUTPUT_ERROR` / 退出 3。普通执行仍可能在写文件或保存 Cookie 时失败。
+显式 `--out-dir` 与 `--cookie-jar` 的父目录（即使 jar 不存在）必须已存在且为目录。预检只检查存在与目录类型，不检查写权限或剩余空间，不执行 mkdir 或保存；该路径检查失败为 `OUTPUT_ERROR` / 退出 3。普通执行仍可能在写文件或保存 Cookie 时失败。显式空值 `--out-dir ""` 在普通执行中同样以 `OUTPUT_ERROR` / 退出 3 失败，且在发送请求之前；省略该参数仍使用私有临时目录。
 
 ### 成功与诊断
 
@@ -175,7 +175,7 @@ curlgo run --curl - --dry-run <imported.curl
 
 ### 普通执行输出
 
-小文本原样放在 `result.body.text`；二进制或超过默认 262144 字节内联阈值的正文保存到 `body.path`，须读取该文件。`--inline-body-bytes` 范围 0–4194304，0 让所有非空正文写文件；捕获最多 4 MiB，`truncated` 为真时不能声称响应完整或直接解析不完整 JSON。文件 0600，默认临时目录 0700，保留供调用方读取与清理；`--out-dir` 须为已有目录，不应删除用户目录或无关文件。`timing` 为毫秒，DNS / 连接 / TLS 累计已完成阶段，TTFB 从执行开始到最后响应首字节，total 到捕获结束；阶段可重叠，不可相加，正文 bytes 为自动解压后的应用字节而非网络流量。
+小文本原样放在 `result.body.text`；二进制或超过默认 262144 字节内联阈值的正文保存到 `body.path`，须读取该文件。`--inline-body-bytes` 范围 0–4194304，0 让所有非空正文写文件；捕获最多 4 MiB，`truncated` 为真时不能声称响应完整或直接解析不完整 JSON。文件 0600，默认临时目录 0700，保留供调用方读取与清理；`--out-dir` 须为已有目录，不应删除用户目录或无关文件。显式空值 `--out-dir ""` 不会回退到临时目录，预检与普通执行都在发送前以 `OUTPUT_ERROR` / 退出 3 失败。`timing` 为毫秒，DNS / 连接 / TLS 累计已完成阶段，TTFB 从执行开始到最后响应首字节，total 到捕获结束；阶段可重叠，不可相加，正文 bytes 为自动解压后的应用字节而非网络流量。
 
 CLI 不加载 GUI 工作区。变量来自 JSON `settings.environments` / `environment`，而非 OS 环境；CA、Cookie、代理分别通过 `--ca-file`、`--cookie-jar`、`--proxy` 显式提供，不读取 `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`。凭证使用 0600 私有文件或 stdin，不放命令行参数；curl 只解析文本，不执行 shell 或隐式 `@file` 读取。响应头、正文和 URL 仍可能含秘密。安全输入、授权 multipart、串行登录链、错误与清理规则见项目技能 [api-test](skills/api-test/SKILL.md)；v1 不含脚本断言、集合运行器或无界面 SSE / WebSocket。
 
@@ -246,16 +246,16 @@ API Key 省略 `location` 时默认 Header。鉴权变量同样从所选 JSON �
 
 GUI 的 macOS 数据保存在 `~/Library/Application Support/QingzhouAPI/`；其他平台使用 Go 的用户配置目录。CurlGo 保留初版数据目录名称，已有草稿、收藏与历史可继续读取。`workspace.json` 保存草稿、收藏与分组、历史、环境配置和 Cookie；`workspace.json.bak` 保留上一份有效内容。后台合并保存、同步文件、原子替换，关窗前完成保存。损坏原件会保留，并显示恢复提示；无法恢复时进入临时会话，避免覆盖原件。
 
-普通工作区数据为本地明文，目录权限 0700、文件权限 0600；机密值在独立的 `secret-vault.json` 中使用 AES-256-GCM 加密，主密钥在 macOS 登录钥匙串。已有字面凭证和普通环境值不自动迁移。分享或提交数据文件前请检查请求凭证与环境值。历史不保存响应正文。客户端无遥测、自动更新或云同步。
+普通工作区数据为本地明文，目录权限 0700、文件权限 0600；机密值在独立的 `secret-vault.json` 中使用 AES-256-GCM 加密，主密钥在 macOS 登录钥匙串。已有字面凭证和普通环境值不自动迁移。分享或提交数据文件前请检查请求凭证与环境值。历史不保存响应正文。客户端无遥测或云同步。
 
 ## 当前边界
 
 - 默认校验 TLS 证书，直连目标，不读取系统代理；暂无 OAuth 授权流程或客户端证书面板。
 - 原始请求正文及单条流事件 / WebSocket 消息最多 1 MiB；multipart 文件流式上传，不受原始正文大小限制。HTTP 响应最多捕获 4 MiB，超出提示截断。流消息保留最近 256 KiB。
 - HTTP 超时限制整次请求；SSE / WebSocket 超时限制连接建立阶段。SSE 首版不自动重连，避免重复提交 POST。
-- curl 支持常用 `--request`、`--header`、`--data`、`--data-raw`、`--data-binary`、`--json`、`--user`、`--cookie`、`--oauth2-bearer`、`--url`、`--location`、`--head`、`--max-time` 和文本 `--form-string`。不执行命令、不展开系统变量、不读隐式 `@file`；`-F` / `--form`、`--data-urlencode` 和未知参数明确拒绝。上传文件需在 GUI 选择，或使用获授权的 CLI JSON multipart 绝对路径。
+- curl 支持 `--request`、`--header`、`--data`、`--data-raw`、`--data-binary`、`--json`、`--user`、`--cookie`（仅 `name=value`）、`--oauth2-bearer`、`--user-agent`、`--referer`、`--url`、`--location`、`--head`、`--max-time` 和文本 `--form-string`，以及 `-X`、`-H`、`-d`、`-u`、`-b`、`-A`、`-e`、`-m`、`-L`、`-I` 短参数与 `--参数=值` 写法；`--compressed`、`-s` / `--silent`、`-S` / `--show-error`、`-sS`、`-i` / `--include`、`-N` / `--no-buffer` 接受但忽略。不执行命令、不展开系统变量、不读隐式 `@file` 或 Cookie 文件；`-F` / `--form`、`--data-urlencode` 和其他未列出的参数明确拒绝，不会被静默丢弃。上传文件需在 GUI 选择，或使用获授权的 CLI JSON multipart 绝对路径。
 - 不包括团队协作、插件、GraphQL 专用面板、gRPC 或脚本执行。
-- Mac 为首要平台。首版提供 macOS Apple Silicon 安装包。冷启动、长期资源表现、干净用户账户安装、升级和其他平台的原生运行仍需进一步验证。
+- Mac 为首要平台。macOS Apple Silicon 提供 DMG，Windows x64 / ARM64 提供安装程序与免安装 ZIP，Linux 与 Intel Mac 当前提供源码。冷启动、长期资源表现、干净用户账户安装、升级和 Windows 等其他平台的原生运行仍需进一步验证。
 
 ## 开发
 
@@ -270,7 +270,7 @@ go tool mygo build -platform darwin/arm64 -sign - -skip-notarize -skip-dmg
 
 上述打包命令使用临时签名，适合本机开发。分发构建使用 `mygo.json` 中的签名身份与公证 profile 引用，构建机器需要自行配置对应证书和钥匙串凭据。仓库不包含私钥或公证凭据。
 
-开发用的原生渲染可通过 `-render <file.png>` 和可选 `-dark` 参数生成，不读取用户数据、不发送网络请求。
+开发用的原生渲染可通过 `-render <file.png>` 和可选 `-dark`、`-render-page`（`0` 请求、`1` 环境、`7` 应用设置，默认 `0`）、`-render-width`（默认 1200，至少 940）与 `-render-height`（默认 820，至少 680）参数生成，不读取用户数据、不发送网络请求。
 
 ## 依赖
 
