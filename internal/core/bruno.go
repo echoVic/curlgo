@@ -299,15 +299,13 @@ func brunoHeaders(blocks []bruBlock) []Pair {
 	return out
 }
 
-// parseBrunoRequest converts one request .bru file. Unsupported features return
-// an error so the request is skipped rather than imported with a changed meaning.
-func parseBrunoRequest(source string, ctx brunoContext) (Request, []string, error) {
+// brunoRequest converts the parsed blocks of one request .bru file.
+// Unsupported features return an error so the request is skipped rather than
+// imported with a changed meaning.
+func brunoRequest(blocks []bruBlock, ctx brunoContext) (Request, []string, error) {
 	var warnings []string
+	var err error
 	r := NewRequest()
-	blocks, err := parseBru(source)
-	if err != nil {
-		return r, nil, err
-	}
 	meta := findBlock(blocks, "meta")
 	if kind := meta.get("type"); kind != "" && kind != "http" && kind != "graphql" {
 		return r, nil, fmt.Errorf("暂不支持 %s 类型的请求", kind)
@@ -594,10 +592,15 @@ func ImportBrunoDirectory(root string) (CollectionImport, error) {
 		for _, entry := range requests {
 			rel, _ := filepath.Rel(root, entry.file)
 			source, err := readBounded(entry.file)
+			// Parse once: the same blocks give the request and its meta.seq.
+			var blocks []bruBlock
+			if err == nil {
+				blocks, err = parseBru(source)
+			}
 			var r Request
 			var warnings []string
 			if err == nil {
-				r, warnings, err = parseBrunoRequest(source, ctx)
+				r, warnings, err = brunoRequest(blocks, ctx)
 			}
 			if err != nil {
 				out.warn("已跳过 %s：%v", rel, err)
@@ -606,13 +609,10 @@ func ImportBrunoDirectory(root string) (CollectionImport, error) {
 			if r.Name == "" {
 				r.Name = strings.TrimSuffix(entry.name, ".bru")
 			}
-			seq := 1 << 30
-			if blocks, err := parseBru(source); err == nil {
-				if n, err := strconv.Atoi(findBlock(blocks, "meta").get("seq")); err == nil {
-					seq = n
-				}
+			entry.seq = 1 << 30
+			if n, err := strconv.Atoi(findBlock(blocks, "meta").get("seq")); err == nil {
+				entry.seq = n
 			}
-			entry.seq = seq
 			ready = append(ready, parsed{entry, r, warnings})
 		}
 		sort.SliceStable(ready, func(i, k int) bool {

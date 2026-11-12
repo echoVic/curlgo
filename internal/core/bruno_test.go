@@ -379,3 +379,13 @@ func TestImportBrunoDirectoryLimits(t *testing.T) {
 		t.Fatalf("超大文件应跳过并提示：%v %v", err, got.Warnings)
 	}
 }
+
+// parseBrunoRequest converts the source of one request .bru file, as the
+// directory import does for each file it reads.
+func parseBrunoRequest(source string, ctx brunoContext) (Request, []string, error) {
+	blocks, err := parseBru(source)
+	if err != nil {
+		return NewRequest(), nil, err
+	}
+	return brunoRequest(blocks, ctx)
+}
