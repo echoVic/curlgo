@@ -1,6 +1,6 @@
 # CurlGo — flow-20261105-finale-trim2
 
-The active `CurlGoRoundtrip` composition is **62.9 seconds**, 1920 × 1080, 30 fps, 1887 frames. It retains the selected A double-loop identity and identifies **v0.1.1**, without claiming earlier versions can update themselves.
+The active `CurlGoRoundtrip` composition is **60.9 seconds**, 1920 × 1080, 30 fps, 1827 frames. It retains the selected A double-loop identity and identifies **v0.1.1**, without claiming earlier versions can update themselves.
 
 The entire film stays on solid petrol `#0c3038`. One native dark workbench remains mounted, with a same-color summary card covering it near the end. The camera only advances from scale 1 to 1.018, without panning, returning moves or repeated page replacement. The opening fades away by 7.5 seconds. The closing summary fades in at the measured summary beat (48.362 seconds); it lists v0.1.1, MIT, macOS Apple Silicon, GitHub, the website and a download invitation, and holds for three seconds after speech. Address entry, sending, response, assertions and variable extraction develop within the same workbench. The optional CLI illustration enters as an ancillary drawer.
 
@@ -27,6 +27,8 @@ Both narration files use the same FFmpeg filter: `silencedetect=noise=-38dB:d=0.
 Complete intervals are in `out/speech-rhythm-comparison.json`. Measurements describe pause density, not perceived fluency. No human listening review is claimed.
 
 ## Generate, render and package
+
+Prerequisites: FFmpeg and ffprobe on `PATH`, Python 3.11 or newer (`package_delivery.py` uses `hashlib.file_digest`), and two packages beyond the standard library: `edge_tts` for `scripts/narration.py` and `numpy` for `scripts/roundtrip.py`. `scripts/speech_rhythm.py` measures the archived previous narration `out/previous/roundtrip-20261104/public/narration/continuous.m4a`, which is ignored and not in the repository, and packaging reads its comparison, so the full pipeline cannot be re-run from a fresh clone. `scripts/narration.py` copies `videoRevision` from `narration.json` into `public/narration/manifest.json`, and `scripts/package_delivery.py` asserts it equals `"flow-20261105-finale-trim2"`; a new `narration.json` revision must update that assertion too.
 
 ```sh
 python3 scripts/narration.py

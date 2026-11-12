@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024"><defs>
-      <linearGradient id="tileB" x1="0" y1="0" x2="0.8" y2="1">
-        <stop stop-color="#FAFAFF"/><stop offset="1" stop-color="#E7E9F7"/>
-      </linearGradient>
-    </defs>
-    <rect x="80" y="80" width="864" height="864" rx="200" fill="url(#tileB)"/>
-    <rect x="81" y="81" width="862" height="862" rx="199" fill="none" stroke="#FFFFFF" stroke-opacity=".13" stroke-width="2"/>
-    <g transform="translate(188 192) scale(2)"><path d="M270 78 230 122C213 104 191 94 166 94C127 94 96 122 96 160C96 198 127 226 166 226C191 226 213 216 230 198L270 242C243 272 207 289 165 289C90 289 30 234 30 160C30 86 90 31 165 31C207 31 244 48 270 78Z" fill="#5145DF"/><path d="M230 122 270 78 270 156Z" fill="#8C7CF4"/></g></svg>

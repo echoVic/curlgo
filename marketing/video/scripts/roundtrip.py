@@ -1,7 +1,7 @@
 """Original CurlGo 'Roundtrip' score: paired plucks, soft bass, spacious pulse.
 
 The two-note call/response motif follows the selected loop identity. All audio
-is synthesized from oscillators and seeded noise; no music samples are used.
+is synthesized from sine oscillators; no music samples are used.
 Requires NumPy. Usage: python3 scripts/roundtrip.py out/roundtrip.wav
 """
 
@@ -18,7 +18,6 @@ DURATION = MANIFEST["durationSeconds"]
 BPM = 72
 BEAT = 60 / BPM
 ROOT = Path(__file__).resolve().parents[1]
-rng = np.random.default_rng(143)
 music = np.zeros((round(RATE * DURATION), 2), dtype=np.float64)
 
 
