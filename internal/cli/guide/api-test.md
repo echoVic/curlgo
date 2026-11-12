@@ -14,7 +14,7 @@ Run `curlgo help run` to inspect JSON options and limits. Use explicit subcomman
 |---|---|
 | Check an endpoint | JSON request with status and relevant business assertions; minimal example below |
 | Verify an API change | Read the diff, identify affected behavior, and choose focused checks; checks from changes (`curlgo skill workflows`, section `checks-from-changes`) |
-| Reproduce pasted curl | Save the text privately and pass `--curl path` or `--curl -`; supported flags and literal-text rules in CLI reference (`curlgo skill cli-reference`, section `multipart-and-literal-text`) |
+| Reproduce pasted curl | Save the text privately and pass `--curl path` or `--curl -`; supported options in CLI reference (`curlgo skill cli-reference`, section `curl-import-options`), literal `@` text in section `multipart-and-literal-text` |
 | Send JSON or query parameters | Use the serialization recipe in workflows (`curlgo skill workflows`, section `json-bodies-and-query-parameters`) |
 | Bearer / Basic / API Key | `request.auth`; real credentials via `{{secret.name}}` and private `--secrets-file`; authentication (`curlgo skill cli-reference`, section `structured-authentication`) |
 | Login, then call another endpoint | Check login status and business success before propagation; serial token and Cookie chains (`curlgo skill workflows`, section `serial-login-chains`) |

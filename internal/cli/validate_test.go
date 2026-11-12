@@ -210,6 +210,39 @@ func TestDryRunLocalFailures(t *testing.T) {
 	}
 }
 
+// An explicitly empty --out-dir names no directory. A real run fails exactly
+// as the dry run does and before the request is sent; omitting the flag still
+// selects the temporary-directory fallback.
+func TestRunEmptyOutDirFailsBeforeSending(t *testing.T) {
+	var hits atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits.Add(1)
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Write([]byte{0, 1, 0xff})
+	}))
+	defer server.Close()
+	tmp := t.TempDir()
+	setTempDir(t, tmp)
+	input := cliIntegrationInput(t, server.URL, nil)
+	exit, value, dryRaw := invokeCLI(t, t.Context(), input, "--dry-run", "--out-dir=")
+	dryRunTestFailure(t, exit, value, dryRaw, ExitOutput, "OUTPUT_ERROR")
+	for _, args := range [][]string{{"--out-dir="}, {"--out-dir", ""}} {
+		exit, value, raw := invokeCLI(t, t.Context(), input, args...)
+		dryRunTestFailure(t, exit, value, raw, ExitOutput, "OUTPUT_ERROR")
+		if raw != dryRaw || value.Error.Message != "Unable to write output." || hits.Load() != 0 {
+			t.Fatalf("args=%q: output=%s, dry run=%s, requests=%d", args, raw, dryRaw, hits.Load())
+		}
+	}
+	if entries, err := os.ReadDir(tmp); err != nil || len(entries) != 0 {
+		t.Fatalf("empty --out-dir used the temporary-directory fallback: %v, %v", entries, err)
+	}
+	exit, value, raw := invokeCLI(t, t.Context(), input)
+	if exit != ExitOK || !value.OK || value.Result == nil || value.Result.Body == nil || value.Result.Body.Path == "" ||
+		filepath.Dir(filepath.Dir(value.Result.Body.Path)) != tmp || hits.Load() != 1 {
+		t.Fatalf("omitted --out-dir = %d, %s, requests=%d", exit, raw, hits.Load())
+	}
+}
+
 func TestDryRunMultipartPreflight(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "private_marker.bin")

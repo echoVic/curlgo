@@ -145,6 +145,12 @@ func Run(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, args []
 		if fail := validateOutputPaths(options, outDirSet); fail != nil {
 			return respondFailure(fail)
 		}
+	} else if outDirSet && options.outDir == "" {
+		// Omitting --out-dir selects the temporary-directory fallback; an
+		// explicitly empty value names no directory, so fail as a dry run does
+		// and before sending. Other bad paths are still found only when the
+		// body is written to a file, after the request.
+		return respondFailure(outputFailure(nil))
 	}
 	var cookies []core.SavedCookie
 	if options.cookieJar != "" {

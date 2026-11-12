@@ -204,7 +204,7 @@ For the minimal GET input above, expect this eight-field `validation` object. `b
 }
 ```
 
-When `--out-dir` is supplied, require its value to name an existing directory. When `--cookie-jar` is supplied, require its parent to be an existing directory, including when the jar itself is missing. Dry-run checks only existence and directory type, not write permissions or free space; it does not mkdir or save. This path check fails with `OUTPUT_ERROR` and exit 3. Normal execution can still fail during output or Cookie saving after preflight succeeds.
+When `--out-dir` is supplied, require its value to name an existing directory. When `--cookie-jar` is supplied, require its parent to be an existing directory, including when the jar itself is missing. Dry-run checks only existence and directory type, not write permissions or free space; it does not mkdir or save. This path check fails with `OUTPUT_ERROR` and exit 3. Normal execution can still fail during output or Cookie saving after preflight succeeds. An explicitly empty `--out-dir ""` also fails a normal run with `OUTPUT_ERROR` and exit 3, before any request is sent; omitting the flag still uses a private temporary directory.
 
 ## Explicit CA, Cookies, And Proxy
 
@@ -284,6 +284,38 @@ For authorized uploads, use `request.bodyMode: multipart` and `request.formParts
 
 Do not execute this upload example without explicit authorization for both the endpoint and file. File contents are streamed; the 1 MiB request-input limit is not an upload-file-size limit. Curl `--form-string 'field=@literal'` is allowed as a text part, not a file read. Likewise `--data-raw '@literal'` sends literal text without opening a file. Other implicit `@file` body reads and `-F` remain rejected.
 
+## Curl Import Options
+
+`--curl` input must be one command whose first word is `curl`. Only the options below are imported; any other option fails the import with `INVALID_CURL` (exit 1) instead of being dropped, so the request never silently differs from the pasted text:
+
+| Option | Imported as |
+|---|---|
+| `-X`, `--request` | Method |
+| `-H`, `--header` | Request header in `Name: value` form; repeat for more headers |
+| `-d`, `--data`, `--data-raw`, `--data-binary`, `--json` | Raw body. Repeated values are joined with `&`, or concatenated when `--json` is present. Implies POST unless `-X` / `--request` or `-I` / `--head` sets the method. Adds `Content-Type: application/x-www-form-urlencoded`, or `Content-Type: application/json` and `Accept: application/json` for `--json`, unless already set |
+| `--form-string` | Multipart text part from `name=value`; implies POST; cannot be mixed with a raw body |
+| `-u`, `--user` | Basic authentication from `user[:password]`; a value containing `{{variables}}` becomes structured `request.auth`, otherwise an `Authorization: Basic` header |
+| `--oauth2-bearer` | `Authorization: Bearer` header |
+| `-b`, `--cookie` | `Cookie` header from `name=value`; unrelated to `--cookie-jar` |
+| `-A`, `--user-agent` / `-e`, `--referer` | `User-Agent` / `Referer` header |
+| `--url`, or one bare argument | URL; only one URL is allowed. `user:password@` in the URL becomes an `Authorization: Basic` header and is removed from the URL |
+| `-m`, `--max-time` | `timeoutSeconds`; integer seconds from 1 through 3600 |
+| `-L`, `--location` | Follow redirects; off without it |
+| `-I`, `--head` | Method HEAD |
+
+`--compressed`, `-s` / `--silent`, `-S` / `--show-error`, `-sS`, `-i` / `--include`, and `-N` / `--no-buffer` are accepted and ignored.
+
+Long options take their value as the next argument or as `--name=value`. `-X`, `-H`, `-d`, `-u`, `-b`, `-A`, and `-e` also accept an attached value such as `-XPOST`; `-m` needs a separate argument. Short flags are not combined except `-sS`, so `-sSL` fails. Options without a value, such as `--location` or `--silent`, fail when given `=value`.
+
+These are rejected explicitly:
+
+- `-F` / `--form`: curl import never reads local files. Upload only through JSON multipart with an authorized absolute `filePath` (section above).
+- `@file` values for `-d`, `--data`, `--data-binary`, and `--json`: no file is opened; paste the body or use `--data-raw` for a literal `@`.
+- `-b` / `--cookie` without `=`: treated as a Cookie file and rejected.
+- Shell syntax: `$` or backticks outside single quotes, unquoted `;`, `|`, `&`, `<`, `>`, `(`, `)`, and unclosed quotes. Nothing is expanded or executed (see Safety First).
+
+Unsupported curl options include `--data-urlencode`, `-k` / `--insecure`, `-x` / `--proxy`, `-o`, and `-v`. Supply proxy, CA, Cookie jar, and output settings as `curlgo run` flags instead; never bypass TLS verification.
+
 ## Interpret Output
 
 Capture stdout privately and record the process exit status. Normally stdout is one JSON document with `schemaVersion`, `ok`, and optional `help`, `validation`, `result`, or `error`. Validate the envelope and distinguish the mode before inspecting fields:
@@ -325,7 +357,7 @@ Inspect `result.body` before parsing:
 - `--inline-body-bytes` defaults to 262144 and accepts 0 through 4194304. Binary or non-text responses use files regardless of the threshold. Zero sends every nonempty body to a file; an empty body can remain inline.
 - Response headers are multivalue arrays; preserve repeated values, including `Set-Cookie`. They remain secret-bearing data, not sanitized diagnostics.
 
-Response body files have unique names and mode 0600. Without `--out-dir`, each file uses a newly created mode-0700 temporary directory. Successful files are retained for the caller to read and clean up; they are not auto-deleted at process exit. After inspection, remove only recorded files and temporary directories owned by this invocation. With an explicit existing directory, never delete the user's directory or unrelated files, or change its permissions.
+Response body files have unique names and mode 0600. Without `--out-dir`, each file uses a newly created mode-0700 temporary directory. An explicitly empty `--out-dir ""` is not treated as omitted: it fails with `OUTPUT_ERROR` and exit 3 before any request is sent, in dry-run and normal runs alike. Successful files are retained for the caller to read and clean up; they are not auto-deleted at process exit. After inspection, remove only recorded files and temporary directories owned by this invocation. With an explicit existing directory, never delete the user's directory or unrelated files, or change its permissions.
 
 Read `result.timing` as milliseconds:
 

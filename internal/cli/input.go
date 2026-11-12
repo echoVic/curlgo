@@ -50,10 +50,6 @@ func decodeOne(data []byte, target any) error {
 	return nil
 }
 
-func decodeInput(data []byte, asCurl bool) (inputData, *failure) {
-	return decodeInputWithSecrets(data, asCurl, nil)
-}
-
 func decodeInputWithSecrets(data []byte, asCurl bool, secrets map[string]string) (inputData, *failure) {
 	if len(data) > core.MaxInput {
 		return inputData{}, inputFailure("INVALID_INPUT", "Input exceeds 1 MiB. Reduce the input size.")

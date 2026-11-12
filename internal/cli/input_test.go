@@ -376,3 +376,8 @@ func (r *inputTestReader) Read(p []byte) (int, error) {
 	}
 	return n, err
 }
+
+// decodeInput decodes input that uses no secrets.
+func decodeInput(data []byte, asCurl bool) (inputData, *failure) {
+	return decodeInputWithSecrets(data, asCurl, nil)
+}
