@@ -4,7 +4,7 @@
 
 **你的 API 工具，由你做主。**
 
-轻量本地 API 客户端，基于 MyGo 0.8.3 原生 UI。打开即用，无需账户或先建项目，请求数据与工作区保存在本机。更新检查会访问 GitHub，可在设置中关闭。HTTP、SSE、WebSocket，以及可选的 CLI 与 Agent Skill。
+轻量本地 API 客户端，基于 MyGo 0.9.0 原生 UI。打开即用，无需账户或先建项目，请求数据与工作区保存在本机。更新检查会访问 GitHub，可在设置中关闭。HTTP、SSE、WebSocket，以及可选的 CLI 与 Agent Skill。
 
 [下载 v0.2.1 · macOS Apple Silicon](https://github.com/echoVic/curlgo/releases/tag/v0.2.1) · [版本记录](CHANGELOG.md) · [MIT 许可证](LICENSE)
 

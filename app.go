@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"sort"
@@ -37,6 +38,7 @@ type application struct {
 	revision                                                               uint64
 	saveGeneration                                                         uint64
 	closing, closed, saveReady, readOnly                                   bool
+	sessionEnding                                                          bool
 	page, requestTab, responseTab, libraryTab                              int
 	headers, globalHeaders, variables, envName, search, curlInput, message string
 	settingsEnvironment                                                    string // environment the variables editor was loaded from
@@ -242,7 +244,7 @@ func (a *application) persist() {
 }
 func (a *application) closeWindow(e *mygo.CloseEvent) {
 	a.lockSecrets()
-	if a.saveReady || a.readOnly {
+	if a.saveReady || a.readOnly || a.sessionEnding {
 		return
 	}
 	e.PreventDefault()
@@ -262,6 +264,7 @@ func (a *application) closeWindow(e *mygo.CloseEvent) {
 }
 
 func (a *application) beforeQuit(e *mygo.QuitEvent) {
+	a.sessionEnding = e.SessionEnding
 	if a.closed {
 		return
 	}
@@ -285,6 +288,12 @@ func (a *application) beforeQuit(e *mygo.QuitEvent) {
 	}
 	a.saves <- job
 	if err := <-reply; err != nil {
+		if e.SessionEnding {
+			// The system cannot retain this window. The synchronous attempt has
+			// finished; do not queue a second save or a main-thread callback.
+			log.Printf("session ending: workspace save failed: %v", err)
+			return
+		}
 		e.PreventDefault()
 		a.closing = false
 		a.saveReady = false

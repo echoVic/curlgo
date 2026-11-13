@@ -25,6 +25,29 @@ func startLifecycleSaver(t *testing.T) (*application, chan func()) {
 }
 
 func TestApplicationBeforeQuit(t *testing.T) {
+	t.Run("session ending does not retry a failed save through the window", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			a, q := startLifecycleSaver(t)
+			path := filepath.Join(a.store.Dir, "workspace.json")
+			if err := os.WriteFile(path, []byte("broken"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			quit := &mygo.QuitEvent{SessionEnding: true}
+			a.beforeQuit(quit)
+			closeEvent := &mygo.CloseEvent{}
+			a.closeWindow(closeEvent)
+			if quit.DefaultPrevented() || closeEvent.DefaultPrevented() || !a.closing {
+				t.Fatal("session ending attempted to keep the window open for an asynchronous retry")
+			}
+			if len(a.saves) != 0 || len(q) != 0 {
+				t.Fatal("session ending queued work that needs the closing window")
+			}
+			data, err := os.ReadFile(path)
+			if err != nil || string(data) != "broken" {
+				t.Fatalf("failed final save changed the existing file: %q, %v", data, err)
+			}
+		})
+	})
 	t.Run("final flush lets the original quit or relaunch close proceed", func(t *testing.T) {
 		synctest.Test(t, func(t *testing.T) {
 			a, _ := startLifecycleSaver(t)
