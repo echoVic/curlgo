@@ -276,6 +276,8 @@ func TestSaveBodyExplicitDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := []byte{0, 0xff, '\n', 'x'}
+	// The repository and TempDir can be on different Windows volumes.
+	t.Chdir(filepath.Dir(dir))
 	cwd, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)

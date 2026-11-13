@@ -32,9 +32,34 @@ func (p *proxyFixture) seen() ([]string, []string) {
 	return append([]string(nil), p.requests...), append([]string(nil), p.auth...)
 }
 
+// Resolve only fixture names locally; Windows does not resolve *.localhost.
+// Keep the request host unchanged so proxy bypass and TLS hostname checks run.
+func dialProxyFixture(ctx context.Context, network, address string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return nil, err
+	}
+	switch host {
+	case "proxy-test.localhost", "internal.localhost", "api.corp.localhost":
+		address = net.JoinHostPort("127.0.0.1", port)
+	}
+	return (&net.Dialer{Timeout: 3 * time.Second}).DialContext(ctx, network, address)
+}
+
+func proxyEngineFixture(t *testing.T) *Engine {
+	t.Helper()
+	e := engineFixture(t)
+	e.transport.DialContext = dialProxyFixture
+	return e
+}
+
 func newProxyFixture(t *testing.T, requireAuth string) *proxyFixture {
 	t.Helper()
 	p := &proxyFixture{}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = nil
+	transport.DialContext = dialProxyFixture
+	t.Cleanup(transport.CloseIdleConnections)
 	p.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p.mu.Lock()
 		p.requests = append(p.requests, r.Method+" "+r.Host)
@@ -46,7 +71,7 @@ func newProxyFixture(t *testing.T, requireAuth string) *proxyFixture {
 			return
 		}
 		if r.Method == http.MethodConnect || strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
-			target, err := net.Dial("tcp", r.Host)
+			target, err := dialProxyFixture(r.Context(), "tcp", r.Host)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadGateway)
 				return
@@ -70,7 +95,7 @@ func newProxyFixture(t *testing.T, requireAuth string) *proxyFixture {
 		}
 		r.RequestURI = ""
 		r.Header.Del("Proxy-Authorization")
-		resp, err := http.DefaultTransport.RoundTrip(r)
+		resp, err := transport.RoundTrip(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
@@ -131,7 +156,7 @@ func TestEngineHTTPProxy(t *testing.T) {
 	}))
 	defer target.Close()
 	proxy := newProxyFixture(t, "")
-	e := engineFixture(t)
+	e := proxyEngineFixture(t)
 	// Loopback IPs and "localhost" bypass the proxy; *.localhost still uses it.
 	address := strings.Replace(target.URL, "127.0.0.1", "proxy-test.localhost", 1)
 	if err := e.SetProxy(ProxySettings{URL: proxy.URL}); err != nil {
@@ -160,7 +185,7 @@ func TestEngineProxyBypass(t *testing.T) {
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "direct") }))
 	defer target.Close()
 	proxy := newProxyFixture(t, "")
-	e := engineFixture(t)
+	e := proxyEngineFixture(t)
 	if err := e.SetProxy(ProxySettings{URL: proxy.URL, Bypass: "internal.localhost, .corp.localhost"}); err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +209,7 @@ func TestEngineProxyAuthentication(t *testing.T) {
 	defer target.Close()
 	want := "Basic " + base64.StdEncoding.EncodeToString([]byte("ada:p@ss"))
 	proxy := newProxyFixture(t, want)
-	e := engineFixture(t)
+	e := proxyEngineFixture(t)
 	address := strings.Replace(target.URL, "127.0.0.1", "proxy-test.localhost", 1)
 	if err := e.SetProxy(ProxySettings{URL: strings.Replace(proxy.URL, "http://", "http://ada:p%40ss@", 1)}); err != nil {
 		t.Fatal(err)
@@ -203,7 +228,7 @@ func TestEngineHTTPSThroughProxyKeepsTLSVerification(t *testing.T) {
 		fmt.Fprint(w, "tunneled")
 	}), func(c *x509.Certificate) { c.DNSNames = append(c.DNSNames, "proxy-test.localhost") })
 	proxy := newProxyFixture(t, "")
-	e := engineFixture(t)
+	e := proxyEngineFixture(t)
 	address := strings.Replace(srv.URL, "127.0.0.1", "proxy-test.localhost", 1)
 	if err := e.SetProxy(ProxySettings{URL: proxy.URL}); err != nil {
 		t.Fatal(err)
@@ -231,7 +256,7 @@ func TestEngineStreamingThroughProxy(t *testing.T) {
 		}))
 		defer target.Close()
 		proxy := newProxyFixture(t, "")
-		e := engineFixture(t)
+		e := proxyEngineFixture(t)
 		if err := e.SetProxy(ProxySettings{URL: proxy.URL}); err != nil {
 			t.Fatal(err)
 		}
@@ -256,7 +281,7 @@ func TestEngineStreamingThroughProxy(t *testing.T) {
 		}))
 		defer target.Close()
 		proxy := newProxyFixture(t, "")
-		e := engineFixture(t)
+		e := proxyEngineFixture(t)
 		if err := e.SetProxy(ProxySettings{URL: proxy.URL}); err != nil {
 			t.Fatal(err)
 		}
@@ -286,7 +311,7 @@ func TestEngineProxyUnreachableReportsProxy(t *testing.T) {
 	}
 	address := l.Addr().String()
 	l.Close()
-	e := engineFixture(t)
+	e := proxyEngineFixture(t)
 	if err := e.SetProxy(ProxySettings{URL: "http://" + address}); err != nil {
 		t.Fatal(err)
 	}
@@ -300,7 +325,7 @@ func TestEngineInvalidProxyKeepsPrevious(t *testing.T) {
 	proxy := newProxyFixture(t, "")
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "ok") }))
 	defer target.Close()
-	e := engineFixture(t)
+	e := proxyEngineFixture(t)
 	if err := e.SetProxy(ProxySettings{URL: proxy.URL}); err != nil {
 		t.Fatal(err)
 	}
